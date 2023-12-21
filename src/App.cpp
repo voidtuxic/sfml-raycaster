@@ -4,20 +4,21 @@
 
 #include <cmath>
 #include "App.h"
-#include "Config.h"
 #include "Floor.h"
 #include "Math.h"
-#include "Render.h"
 #include "Wall.h"
 
 
 App::App() {
+    camera = new CameraData(
+        sf::Vector2<double>(22, 11.5),
+        sf::Vector2<double>(-1, 0),
+        sf::Vector2<double>(0, 0.9));
+
     window = new sf::RenderWindow(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Raycaster");
     window->setVerticalSyncEnabled(true);
     window->setMouseCursorGrabbed(true);
     window->setMouseCursorVisible(false);
-
-    buffer = new sf::Uint8[RENDER_WIDTH * RENDER_HEIGHT * RENDER_COMPONENTS];
 
     texture = new sf::Texture();
     texture->create(RENDER_WIDTH, RENDER_HEIGHT);
@@ -25,33 +26,25 @@ App::App() {
     bufferRect = new sf::RectangleShape(sf::Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
     bufferRect->setTexture(texture, true);
 
-    textures.push_back(new sf::Image());
-    textures.push_back(new sf::Image());
-    textures.push_back(new sf::Image());
-    textures.push_back(new sf::Image());
-    textures.push_back(new sf::Image());
-    textures.push_back(new sf::Image());
-    textures.push_back(new sf::Image());
-    textures.push_back(new sf::Image());
-    textures.push_back(new sf::Image());
-    textures.push_back(new sf::Image());
-    textures[0]->loadFromFile("textures/wool_colored_yellow.png");
-    textures[1]->loadFromFile("textures/wool_colored_silver.png");
-    textures[2]->loadFromFile("textures/wool_colored_orange.png");
-    textures[3]->loadFromFile("textures/wool_colored_purple.png");
-    textures[4]->loadFromFile("textures/wool_colored_magenta.png");
-    textures[5]->loadFromFile("textures/glass_blue.png");
-    textures[6]->loadFromFile("textures/wool_colored_gray.png");
-    textures[7]->loadFromFile("textures/wool_colored_red.png");
-    textures[8]->loadFromFile("textures/stone_andesite_smooth.png");
-    textures[9]->loadFromFile("textures/pumpkin_top.png");
+    renderData = new RenderData;
+    renderData->buffer = new sf::Uint8[RENDER_WIDTH * RENDER_HEIGHT * RENDER_COMPONENTS];
+    loadTexture("textures/wool_colored_yellow.png");
+    loadTexture("textures/wool_colored_silver.png");
+    loadTexture("textures/wool_colored_orange.png");
+    loadTexture("textures/wool_colored_purple.png");
+    loadTexture("textures/wool_colored_magenta.png");
+    loadTexture("textures/glass_blue.png");
+    loadTexture("textures/wool_colored_gray.png");
+    loadTexture("textures/wool_colored_red.png");
+    loadTexture("textures/stone_andesite_smooth.png");
+    loadTexture("textures/pumpkin_top.png");
 }
 
 App::~App() {
-    for (const auto image: textures) {
+    for (const auto image: renderData->textures) {
         free(image);
     }
-    textures.clear();
+    renderData->textures.clear();
     free(bufferRect);
     free(texture);
     free(window);
@@ -66,12 +59,12 @@ int App::run() {
     return EXIT_SUCCESS;
 }
 
-void App::handleInput() {
-    //timing for input and FPS counter
-    const sf::Time dt = deltaClock.restart();
-    const double frameTime = dt.asSeconds();
+void App::loadTexture(const std::string &filename) const {
+    renderData->textures.push_back(new sf::Image());
+    renderData->textures[renderData->textures.size() - 1]->loadFromFile(filename);
+}
 
-    //speed modifiers
+void App::handleKeyboard(const double frameTime) const {
     const double moveSpeed = frameTime * 5.0; //the constant value is in squares/second
     sf::Vector2<double> movement;
 
@@ -91,33 +84,35 @@ void App::handleInput() {
     if(movement.x != 0 || movement.y != 0) {
         normalize(movement);
         if (worldMap
-            [static_cast<int>(position.x + direction.x * moveSpeed * WALL_DISTANCE * movement.y)]
-            [static_cast<int>(position.y)] == false)
-            position.x += direction.x * moveSpeed * movement.y;
+            [static_cast<int>(camera->position.x + camera->direction.x * moveSpeed * WALL_DISTANCE * movement.y)]
+            [static_cast<int>(camera->position.y)] == false)
+            camera->position.x += camera->direction.x * moveSpeed * movement.y;
         if (worldMap
-            [static_cast<int>(position.x)]
-            [static_cast<int>(position.y + direction.y * moveSpeed * WALL_DISTANCE * movement.y)] == false)
-            position.y += direction.y * moveSpeed * movement.y;
+            [static_cast<int>(camera->position.x)]
+            [static_cast<int>(camera->position.y + camera->direction.y * moveSpeed * WALL_DISTANCE * movement.y)] == false)
+            camera->position.y += camera->direction.y * moveSpeed * movement.y;
         if (worldMap
-            [static_cast<int>(position.x + direction.y * moveSpeed * WALL_DISTANCE * movement.x)]
-            [static_cast<int>(position.y)] == false)
-            position.x += direction.y * moveSpeed * movement.x;
+            [static_cast<int>(camera->position.x + camera->direction.y * moveSpeed * WALL_DISTANCE * movement.x)]
+            [static_cast<int>(camera->position.y)] == false)
+            camera->position.x += camera->direction.y * moveSpeed * movement.x;
         if (worldMap
-            [static_cast<int>(position.x)]
-            [static_cast<int>(position.y - direction.x * moveSpeed * WALL_DISTANCE * movement.x)] == false)
-            position.y -= direction.x * moveSpeed * movement.x;
+            [static_cast<int>(camera->position.x)]
+            [static_cast<int>(camera->position.y - camera->direction.x * moveSpeed * WALL_DISTANCE * movement.x)] == false)
+            camera->position.y -= camera->direction.x * moveSpeed * movement.x;
     }
+}
 
+void App::handleMouse(const double frameTime) {
     auto mousePosition = sf::Mouse::getPosition(*window);
     if(const auto mouseDelta = mousePosition - previousMousePosition; abs(mouseDelta.x) > 0) {
         //both camera direction and camera plane must be rotated
-        const double oldDirX = direction.x;
+        const double oldDirX = camera->direction.x;
         const double rotSpeed = frameTime * -mouseDelta.x * MOUSE_SENSITIVITY; //the constant value is in radians/second
-        direction.x = direction.x * cos(rotSpeed) - direction.y * sin(rotSpeed);
-        direction.y = oldDirX * sin(rotSpeed) + direction.y * cos(rotSpeed);
-        const double oldPlaneX = plane.x;
-        plane.x = plane.x * cos(rotSpeed) - plane.y * sin(rotSpeed);
-        plane.y = oldPlaneX * sin(rotSpeed) + plane.y * cos(rotSpeed);
+        camera->direction.x = camera->direction.x * cos(rotSpeed) - camera->direction.y * sin(rotSpeed);
+        camera->direction.y = oldDirX * sin(rotSpeed) + camera->direction.y * cos(rotSpeed);
+        const double oldPlaneX = camera->plane.x;
+        camera->plane.x = camera->plane.x * cos(rotSpeed) - camera->plane.y * sin(rotSpeed);
+        camera->plane.y = oldPlaneX * sin(rotSpeed) + camera->plane.y * cos(rotSpeed);
     }
     previousMousePosition = mousePosition;
     if(mousePosition.x <= 1) {
@@ -130,6 +125,15 @@ void App::handleInput() {
         previousMousePosition.x -= WINDOW_WIDTH;
         sf::Mouse::setPosition(mousePosition, *window);
     }
+}
+
+void App::handleInput() {
+    //timing for input and FPS counter
+    const sf::Time dt = deltaClock.restart();
+    const double frameTime = dt.asSeconds();
+
+    handleKeyboard(frameTime);
+    handleMouse(frameTime);
 
     sf::Event event{};
     while (window->pollEvent(event)) {
@@ -139,28 +143,19 @@ void App::handleInput() {
 }
 
 void App::render() const {
-    clearBuffer(buffer);
+    renderData->clearBuffer();
 
     for (int x = 0; x < RENDER_WIDTH; x++) {
-        sf::Vector2<double> rayDir;
-        sf::Vector2i map;
-        double perpWallDist, wallX;
-        int side, lineHeight, drawStart, drawEnd;
-        calculateWall(worldMap, position, direction, plane, x, rayDir, map, perpWallDist,
-            side, lineHeight, drawStart, drawEnd);
+        RaycastData raycast;
+        calculateWall(x, raycast, worldMap, camera);
+        raycast.populateTextureParameters(camera->position);
+        drawColumn(x, raycast, renderData);
 
-        int texNum, texX;
-        double step, texPos;
-        getTextureParameters(position, rayDir, map, perpWallDist, side, lineHeight, drawStart,
-            texNum, texX, step, texPos, wallX);
-        drawColumn(x, drawStart, drawEnd, texNum, texX, step, texPos, perpWallDist, buffer, textures);
-
-        sf::Vector2<double> floorWall; //x, y position of the floor texel at the bottom of the wall
-        calculateFloorWall(rayDir, map, wallX, side, floorWall);
-        drawFloorWall(position, x, perpWallDist, drawEnd, floorWall, buffer, textures);
+        calculateFloorWall(raycast);
+        drawFloorWall(x, raycast, camera->position, renderData);
     }
 
-    texture->update(buffer);
+    texture->update(renderData->buffer);
     window->clear(sf::Color::Black);
     window->draw(*bufferRect);
     window->display();

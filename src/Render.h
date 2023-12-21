@@ -4,22 +4,71 @@
 
 #ifndef RENDER_H
 #define RENDER_H
+#include <cmath>
 #include "Config.h"
 
-inline void setColor(sf::Uint8* buffer, const int x, const int y, const sf::Color color) {
-    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS] = color.r;
-    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 1] = color.g;
-    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 2] = color.b;
-    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 3] = color.a;
-}
+struct CameraData {
+    CameraData(const sf::Vector2<double> &position, const sf::Vector2<double> &direction,
+        const sf::Vector2<double> &plane)
+        : position(position),
+          direction(direction),
+          plane(plane) {
+    }
+    sf::Vector2<double> position;
+    sf::Vector2<double> direction;
+    sf::Vector2<double> plane;
+};
 
-inline void clearBuffer(sf::Uint8* buffer) {
-    for (int x = 0; x < RENDER_WIDTH; x++) {
-        for (int y = 0; y < RENDER_HEIGHT; y++) {
-            setColor(buffer, x, y, CLEAR_COLOR);
+struct RenderData {
+    sf::Uint8 *buffer;
+    std::vector<sf::Image *> textures;
+
+    void clearBuffer() const {
+        for (int x = 0; x < RENDER_WIDTH; x++) {
+            for (int y = 0; y < RENDER_HEIGHT; y++) {
+                setColor(x, y, CLEAR_COLOR);
+            }
         }
     }
-}
+
+    void setColor(const int x, const int y, const sf::Color color) const {
+        buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS] = color.r;
+        buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 1] = color.g;
+        buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 2] = color.b;
+        buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 3] = color.a;
+    }
+};
+
+struct RaycastData {
+    sf::Vector2<double> rayDirection;
+    sf::Vector2i mapPosition;
+    double wallDistance{};
+    double wallX{};
+    int side{};
+    int lineHeight{};
+    int drawStart{};
+    int drawEnd{};
+    int textureId{};
+    int textureX{};
+    double step{};
+    double texturePosition{};
+    sf::Vector2<double> floorWall;
+
+    void populateTextureParameters(const sf::Vector2<double> &position) {
+        textureId = worldMap[mapPosition.x][mapPosition.y] - 1;
+
+        //calculate value of wallX
+        if (side % 2 == 0) wallX = position.y + wallDistance * rayDirection.y;
+        else wallX = position.x + wallDistance * rayDirection.x;
+        wallX -= floor((wallX));
+
+        textureX = static_cast<int>(wallX * static_cast<double>(TEX_WIDTH));
+        if (side % 2 == 0 && rayDirection.x > 0) textureX = TEX_WIDTH - textureX - 1;
+        if (side % 2 == 1 && rayDirection.y < 0) textureX = TEX_WIDTH - textureX - 1;
+        step = 1.0 * TEX_HEIGHT / lineHeight;
+        texturePosition = (drawStart - RENDER_HEIGHT / 2 + lineHeight / 2) * step;
+    }
+};
 
 inline void applyFog(const double distance, sf::Color &color) {
     double delta = std::clamp(distance / FOG_DISTANCE, 0.0, 1.0);
@@ -29,65 +78,44 @@ inline void applyFog(const double distance, sf::Color &color) {
     color.b = std::lerp(color.b, CLEAR_COLOR.b, delta);
 }
 
-inline void getTextureParameters(const sf::Vector2<double> &position, const sf::Vector2<double> &rayDir,
-                                 const sf::Vector2i &map, const double perpWallDist, const int side,
-                                 const int lineHeight, const int drawStart, int &texNum, int &texX, double &step,
-                                 double &texPos, double &wallX) {
-    texNum = worldMap[map.x][map.y] - 1;
-
-    //calculate value of wallX
-    if (side % 2 == 0) wallX = position.y + perpWallDist * rayDir.y;
-    else wallX = position.x + perpWallDist * rayDir.x;
-    wallX -= floor((wallX));
-
-    texX = static_cast<int>(wallX * static_cast<double>(TEX_WIDTH));
-    if (side % 2 == 0 && rayDir.x > 0) texX = TEX_WIDTH - texX - 1;
-    if (side % 2 == 1 && rayDir.y < 0) texX = TEX_WIDTH - texX - 1;
-    step = 1.0 * TEX_HEIGHT / lineHeight;
-    texPos = (drawStart - RENDER_HEIGHT / 2 + lineHeight / 2) * step;
-}
-
-inline void drawColumn(const int x, const int drawStart, const int drawEnd, const int texNum, const int texX,
-                       const double step, double texPos, const double perpWallDist, sf::Uint8 *buffer,
-                       const std::vector<sf::Image *> &textures) {
-    if(perpWallDist > FOG_DISTANCE) return;
-    for (int y = drawStart; y <= drawEnd; ++y) {
+inline void drawColumn(const int x, RaycastData &raycast, const RenderData *renderData) {
+    if (raycast.wallDistance > FOG_DISTANCE) return;
+    for (int y = raycast.drawStart; y <= raycast.drawEnd; ++y) {
         // Cast the texture coordinate to integer, and mask with (TEX_HEIGHT - 1) in case of overflow
-        const int texY = static_cast<int>(texPos) & (TEX_HEIGHT - 1);
-        texPos += step;
-        auto color = textures[texNum]->getPixel(texX, texY);
-        applyFog(perpWallDist, color);
-        setColor(buffer, x, y, color);
+        const int texY = static_cast<int>(raycast.texturePosition) & (TEX_HEIGHT - 1);
+        raycast.texturePosition += raycast.step;
+        auto color = renderData->textures[raycast.textureId]->getPixel(raycast.textureX, texY);
+        applyFog(raycast.wallDistance, color);
+        renderData->setColor(x, y, color);
     }
 }
 
-inline void drawFloorWall(const sf::Vector2<double> &position, const int x, const double perpWallDist, int &drawEnd,
-                          const sf::Vector2<double> floorWall, sf::Uint8 *buffer,
-                          const std::vector<sf::Image *> &textures) {
-    if (drawEnd < 0) drawEnd = RENDER_HEIGHT; //becomes < 0 when the integer overflows
+inline void drawFloorWall(const int x, RaycastData &raycast,
+                          const sf::Vector2<double> &position, const RenderData *renderData) {
+    if (raycast.drawEnd < 0) raycast.drawEnd = RENDER_HEIGHT; //becomes < 0 when the integer overflows
 
     //draw the floor from drawEnd to the bottom of the screen
-    for(int y = drawEnd + 1; y < RENDER_HEIGHT; y++)
-    {
+    for (int y = raycast.drawEnd + 1; y < RENDER_HEIGHT; y++) {
         constexpr double distPlayer = 0.0;
-        const double currentDist = RENDER_HEIGHT / (2.0 * y - RENDER_HEIGHT); //you could make a small lookup table for this instead
+        const double currentDist = RENDER_HEIGHT / (2.0 * y - RENDER_HEIGHT);
+        //you could make a small lookup table for this instead
 
-        const double weight = (currentDist - distPlayer) / (perpWallDist - distPlayer);
+        const double weight = (currentDist - distPlayer) / (raycast.wallDistance - distPlayer);
 
-        const double currentFloorX = weight * floorWall.x + (1.0 - weight) * position.x;
-        const double currentFloorY = weight * floorWall.y + (1.0 - weight) * position.y;
+        const double currentFloorX = weight * raycast.floorWall.x + (1.0 - weight) * position.x;
+        const double currentFloorY = weight * raycast.floorWall.y + (1.0 - weight) * position.y;
 
         const int floorTexX = static_cast<int>(currentFloorX * TEX_WIDTH) % TEX_WIDTH;
         const int floorTexY = static_cast<int>(currentFloorY * TEX_HEIGHT) % TEX_HEIGHT;
 
         //floor
-        auto color = textures[FLOOR_TEXTURE]->getPixel(floorTexX, floorTexY);
+        auto color = renderData->textures[FLOOR_TEXTURE]->getPixel(floorTexX, floorTexY);
         applyFog(currentDist, color);
-        setColor(buffer, x, y, color);
+        renderData->setColor(x, y, color);
         //ceiling (symmetrical!)
-        color = textures[CEILING_TEXTURE]->getPixel(floorTexX, floorTexY);
+        color = renderData->textures[CEILING_TEXTURE]->getPixel(floorTexX, floorTexY);
         applyFog(currentDist, color);
-        setColor(buffer, x, RENDER_HEIGHT - y, color);
+        renderData->setColor(x, RENDER_HEIGHT - y, color);
     }
 }
 

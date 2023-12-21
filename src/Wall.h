@@ -46,14 +46,11 @@ inline void performDDA(const int map[MAP_WIDTH][MAP_HEIGHT], int &side, const sf
     }
 }
 
-inline void calculateWall(const int map[MAP_WIDTH][MAP_HEIGHT], const sf::Vector2<double> &position,
-                          const sf::Vector2<double> &direction, const sf::Vector2<double> plane, const int x,
-                          sf::Vector2<double> &rayDir, sf::Vector2i &mapPosition, double &perpWallDist, int &side,
-                          int &lineHeight, int &drawStart, int &drawEnd) {
+inline void calculateWall(const int x, RaycastData &raycast, const int map[MAP_WIDTH][MAP_HEIGHT], const CameraData* camera) {
     //calculate ray position and direction
     const double cameraX = 2 * x / static_cast<double>(RENDER_WIDTH) - 1; //x-coordinate in camera space
-    rayDir = sf::Vector2(direction.x + plane.x * cameraX, direction.y + plane.y * cameraX);
-    mapPosition = sf::Vector2i(static_cast<int>(position.x), static_cast<int>(position.y));
+    raycast.rayDirection = sf::Vector2(camera->direction.x + camera->plane.x * cameraX, camera->direction.y + camera->plane.y * cameraX);
+    raycast.mapPosition = sf::Vector2i(static_cast<int>(camera->position.x), static_cast<int>(camera->position.y));
 
     //length of ray from current position to next x or y-side
     sf::Vector2<double> sideDist;
@@ -61,24 +58,24 @@ inline void calculateWall(const int map[MAP_WIDTH][MAP_HEIGHT], const sf::Vector
 
     //length of ray from one x or y-side to next x or y-side
     const sf::Vector2<double> deltaDist = sf::Vector2<double>(
-        (rayDir.x == 0) ? 1e30 : std::abs(1 / rayDir.x),
-        (rayDir.y == 0) ? 1e30 : std::abs(1 / rayDir.y));
+        (raycast.rayDirection.x == 0) ? 1e30 : std::abs(1 / raycast.rayDirection.x),
+        (raycast.rayDirection.y == 0) ? 1e30 : std::abs(1 / raycast.rayDirection.y));
 
     //calculate step and initial sideDist
-    calculateStep(position, rayDir, deltaDist, mapPosition, sideDist, step);
+    calculateStep(camera->position, raycast.rayDirection, deltaDist, raycast.mapPosition, sideDist, step);
 
     //perform DDA
-    performDDA(map, side, deltaDist, step, mapPosition, sideDist);
+    performDDA(map, raycast.side, deltaDist, step, raycast.mapPosition, sideDist);
 
     //Calculate distance projected on camera direction (Euclidean distance would give fisheye effect!)
-    if (side % 2 == 0) perpWallDist = (sideDist.x - deltaDist.x);
-    else perpWallDist = (sideDist.y - deltaDist.y);
-    lineHeight = static_cast<int>(RENDER_HEIGHT / perpWallDist);
+    if (raycast.side % 2 == 0) raycast.wallDistance = (sideDist.x - deltaDist.x);
+    else raycast.wallDistance = (sideDist.y - deltaDist.y);
+    raycast.lineHeight = static_cast<int>(RENDER_HEIGHT / raycast.wallDistance);
 
-    drawStart = -lineHeight / 2 + RENDER_HEIGHT / 2;
-    if (drawStart < 0) drawStart = 0;
-    drawEnd = lineHeight / 2 + RENDER_HEIGHT / 2;
-    if (drawEnd >= RENDER_HEIGHT) drawEnd = RENDER_HEIGHT - 1;
+    raycast.drawStart = -raycast.lineHeight / 2 + RENDER_HEIGHT / 2;
+    if (raycast.drawStart < 0) raycast.drawStart = 0;
+    raycast.drawEnd = raycast.lineHeight / 2 + RENDER_HEIGHT / 2;
+    if (raycast.drawEnd >= RENDER_HEIGHT) raycast.drawEnd = RENDER_HEIGHT - 1;
 }
 
 #endif //WALL_H

@@ -6,6 +6,8 @@
 #define APP_H
 #include <SFML/Graphics.hpp>
 
+#include "Render.h"
+
 class App {
 public:
     App();
@@ -15,19 +17,22 @@ public:
 private:
     sf::RenderWindow *window;
     sf::Clock deltaClock;
-    sf::Uint8 *buffer;
+
     sf::Texture *texture;
     sf::RectangleShape *bufferRect;
+    RenderData *renderData;
 
-    std::vector<sf::Image *> textures;
-
-    sf::Vector2<double> position = sf::Vector2<double>(22, 11.5);
-    sf::Vector2<double> direction = sf::Vector2<double>(-1, 0);
-    sf::Vector2<double> plane = sf::Vector2<double>(0, 0.9);
+    CameraData* camera;
 
     sf::Vector2i previousMousePosition;
 
 private:
+    void loadTexture(const std::string & filename) const;
+
+    void handleKeyboard(double frameTime) const;
+
+    void handleMouse(double frameTime);
+
     void handleInput();
 
     void render() const;
