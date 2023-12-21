@@ -32,9 +32,9 @@ App::App() {
     textures[0]->loadFromFile("textures/wool_colored_yellow.png");
     textures[1]->loadFromFile("textures/wool_colored_silver.png");
     textures[2]->loadFromFile("textures/wool_colored_orange.png");
-    textures[3]->loadFromFile("textures/wool_colored_black.png");
-    textures[4]->loadFromFile("textures/wool_colored_blue.png");
-    textures[5]->loadFromFile("textures/wool_colored_brown.png");
+    textures[3]->loadFromFile("textures/wool_colored_purple.png");
+    textures[4]->loadFromFile("textures/wool_colored_magenta.png");
+    textures[5]->loadFromFile("textures/glass_blue.png");
     textures[6]->loadFromFile("textures/wool_colored_gray.png");
     textures[7]->loadFromFile("textures/wool_colored_red.png");
     textures[8]->loadFromFile("textures/stone_andesite_smooth.png");
@@ -189,7 +189,7 @@ void App::calculate(const int x, sf::Vector2<double> &rayDir, sf::Vector2i &map,
     if (drawEnd >= RENDER_HEIGHT) drawEnd = RENDER_HEIGHT - 1;
 }
 
-void App::calculateFloor(int y, sf::Vector2<double> &floorStep, sf::Vector2<double> &floor) const {
+void App::calculateFloor(int y, sf::Vector2<double> &floorStep, sf::Vector2<double> &floor, double &rowDistance) const {
     // rayDir for leftmost ray (x = 0) and rightmost ray (x = w)
     const auto rayDir0 = sf::Vector2(direction.x - plane.x, direction.y - plane.y);
     const auto rayDir1 = sf::Vector2(direction.x + plane.x, direction.y + plane.y);
@@ -202,7 +202,7 @@ void App::calculateFloor(int y, sf::Vector2<double> &floorStep, sf::Vector2<doub
 
     // Horizontal distance from the camera to the floor for the current row.
     // 0.5 is the z position exactly in the middle between floor and ceiling.
-    const double rowDistance = posZ / p;
+    rowDistance = posZ / p;
 
     floorStep = sf::Vector2(rowDistance * (rayDir1.x - rayDir0.x) / RENDER_WIDTH,
                             rowDistance * (rayDir1.y - rayDir0.y) / RENDER_WIDTH);
@@ -229,18 +229,20 @@ void App::getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vect
 }
 
 void App::drawColumn(const int x, const int side, const int drawStart, const int drawEnd, const int texNum,
-                     const int texX, const double step, double texPos) const {
+                     const int texX, const double step, double texPos, const double perpWallDist) const {
     for (int y = drawStart; y < drawEnd; ++y) {
         // Cast the texture coordinate to integer, and mask with (TEX_HEIGHT - 1) in case of overflow
         const int texY = static_cast<int>(texPos) & (TEX_HEIGHT - 1);
         texPos += step;
         auto color = textures[texNum]->getPixel(texX, texY);
         if(side % 2 == 1) color.a /= 2;
+        color.a *= 1.0 - std::clamp(perpWallDist / FOG_DISTANCE, 0.0, 1.0);
         buffer->setPixel(x, y, color);
     }
 }
 
-void App::drawFloorAndCeiling(const int y, const sf::Vector2<double> floorStep, sf::Vector2<double> floor) const {
+void App::drawFloorAndCeiling(const int y, const sf::Vector2<double> floorStep, sf::Vector2<double> floor,
+                              double &rowDistance) const {
     for(int x = 0; x < RENDER_WIDTH; ++x)
     {
         // the cell coord is simply got from the integer parts of floorX and floorY
@@ -255,10 +257,12 @@ void App::drawFloorAndCeiling(const int y, const sf::Vector2<double> floorStep, 
 
         // floor
         auto color = textures[FLOOR_TEXTURE]->getPixel(tx, ty);
+        color.a *= 1.0 - std::clamp(rowDistance / FOG_DISTANCE, 0.0, 1.0);
         buffer->setPixel(x, y, color);
 
         //ceiling (symmetrical, at screenHeight - y - 1 instead of y)
         color = textures[CEILING_TEXTURE]->getPixel(tx, ty);
+        color.a *= 1.0 - std::clamp(rowDistance / FOG_DISTANCE, 0.0, 1.0);
         buffer->setPixel(x, RENDER_HEIGHT - y - 1, color);
     }
 }
@@ -270,9 +274,10 @@ void App::render() const {
     {
         sf::Vector2<double> floorStep;
         sf::Vector2<double> floor;
-        calculateFloor(y, floorStep, floor);
+        double rowDistance;
+        calculateFloor(y, floorStep, floor, rowDistance);
 
-        drawFloorAndCeiling(y, floorStep, floor);
+        drawFloorAndCeiling(y, floorStep, floor, rowDistance);
     }
 
     for (int x = 0; x < RENDER_WIDTH; x++) {
@@ -289,7 +294,7 @@ void App::render() const {
         getTextureParameters(rayDir, map, perpWallDist,
                              side, lineHeight, drawStart, texNum, texX, step, texPos);
 
-        drawColumn(x, side, drawStart, drawEnd, texNum, texX, step, texPos);
+        drawColumn(x, side, drawStart, drawEnd, texNum, texX, step, texPos, perpWallDist);
     }
 
     texture->update(*buffer);

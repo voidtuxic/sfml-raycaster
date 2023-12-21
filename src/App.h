@@ -17,6 +17,7 @@
 #define WALL_DISTANCE 8
 #define FLOOR_TEXTURE 8
 #define CEILING_TEXTURE 9
+#define FOG_DISTANCE 10
 
 inline int worldMap[MAP_WIDTH][MAP_HEIGHT] =
 {
@@ -82,12 +83,12 @@ private:
     auto calculate(int x, sf::Vector2<double> &rayDir, sf::Vector2i &map, double &perpWallDist,
                    int &side, int &lineHeight, int &drawStart, int &drawEnd) const -> void;
 
-    void calculateFloor(int y, sf::Vector2<double> &floorStep, sf::Vector2<double> &floor) const;
+    void calculateFloor(int y, sf::Vector2<double> &floorStep, sf::Vector2<double> &floor, double &rowDistance) const;
 
     void drawColumn(int x, int side, int drawStart, int drawEnd, int texNum, int texX, double step,
-                    double texPos) const;
+                    double texPos, double perpWallDist) const;
 
-    void drawFloorAndCeiling(int y, sf::Vector2<double> floorStep, sf::Vector2<double> floor) const;
+    void drawFloorAndCeiling(int y, sf::Vector2<double> floorStep, sf::Vector2<double> floor, double &rowDistance) const;
 
     auto getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vector2i &map, double perpWallDist, int side,
                               int lineHeight, int drawStart, int &texNum, int &texX, double &step,
