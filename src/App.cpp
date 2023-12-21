@@ -6,6 +6,7 @@
 #include "App.h"
 #include "Config.h"
 #include "Floor.h"
+#include "Math.h"
 #include "Render.h"
 #include "Wall.h"
 
@@ -42,7 +43,6 @@ App::App() {
     textures[7]->loadFromFile("textures/wool_colored_red.png");
     textures[8]->loadFromFile("textures/stone_andesite_smooth.png");
     textures[9]->loadFromFile("textures/pumpkin_top.png");
-
 }
 
 App::~App() {
@@ -71,38 +71,54 @@ void App::handleInput() {
 
     //speed modifiers
     const double moveSpeed = frameTime * 5.0; //the constant value is in squares/second
-    const double rotSpeed = frameTime * 3.0; //the constant value is in radians/second
+    sf::Vector2<double> movement;
 
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::W)) {
-        if (worldMap[static_cast<int>(position.x + direction.x * moveSpeed * WALL_DISTANCE)][static_cast<int>(position.y)] == false)
-            position.x += direction.x * moveSpeed;
-        if (worldMap[static_cast<int>(position.x)][static_cast<int>(position.y + direction.y * moveSpeed * WALL_DISTANCE)] == false)
-            position.y += direction.y * moveSpeed;
+        movement.y += 1;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::S)) {
-        if (worldMap[static_cast<int>(position.x - direction.x * moveSpeed * WALL_DISTANCE)][static_cast<int>(position.y)] == false)
-            position.x -= direction.x * moveSpeed;
-        if (worldMap[static_cast<int>(position.x)][static_cast<int>(position.y - direction.y * moveSpeed * WALL_DISTANCE)] == false)
-            position.y -= direction.y * moveSpeed;
+        movement.y -= 1;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::D)) {
-        //both camera direction and camera plane must be rotated
-        const double oldDirX = direction.x;
-        direction.x = direction.x * cos(-rotSpeed) - direction.y * sin(-rotSpeed);
-        direction.y = oldDirX * sin(-rotSpeed) + direction.y * cos(-rotSpeed);
-        const double oldPlaneX = plane.x;
-        plane.x = plane.x * cos(-rotSpeed) - plane.y * sin(-rotSpeed);
-        plane.y = oldPlaneX * sin(-rotSpeed) + plane.y * cos(-rotSpeed);
+        movement.x += 1;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::A)) {
+        movement.x -= 1;
+    }
+
+    if(movement.x != 0 || movement.y != 0) {
+        normalize(movement);
+
+        if (worldMap
+            [static_cast<int>(position.x + direction.x * moveSpeed * WALL_DISTANCE * movement.y)]
+            [static_cast<int>(position.y)] == false)
+            position.x += direction.x * moveSpeed * movement.y;
+        if (worldMap
+            [static_cast<int>(position.x)]
+            [static_cast<int>(position.y + direction.y * moveSpeed * WALL_DISTANCE * movement.y)] == false)
+            position.y += direction.y * moveSpeed * movement.y;
+        if (worldMap
+            [static_cast<int>(position.x + direction.y * moveSpeed * WALL_DISTANCE * movement.x)]
+            [static_cast<int>(position.y)] == false)
+            position.x += direction.y * moveSpeed * movement.x;
+        if (worldMap
+            [static_cast<int>(position.x)]
+            [static_cast<int>(position.y - direction.x * moveSpeed * WALL_DISTANCE * movement.x)] == false)
+            position.y -= direction.x * moveSpeed * movement.x;
+    }
+
+    const auto mousePosition = sf::Mouse::getPosition(*window);
+    if(const auto mouseDelta = mousePosition - previousMousePosition; abs(mouseDelta.x) > 0) {
         //both camera direction and camera plane must be rotated
         const double oldDirX = direction.x;
+        const double rotSpeed = frameTime * -mouseDelta.x * MOUSE_SENSITIVITY; //the constant value is in radians/second
         direction.x = direction.x * cos(rotSpeed) - direction.y * sin(rotSpeed);
         direction.y = oldDirX * sin(rotSpeed) + direction.y * cos(rotSpeed);
         const double oldPlaneX = plane.x;
         plane.x = plane.x * cos(rotSpeed) - plane.y * sin(rotSpeed);
         plane.y = oldPlaneX * sin(rotSpeed) + plane.y * cos(rotSpeed);
     }
+    previousMousePosition = mousePosition;
 
     sf::Event event{};
     while (window->pollEvent(event)) {

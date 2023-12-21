@@ -17,6 +17,7 @@ add_executable(raycaster src/main.cpp
         src/Render.h
         src/Config.h
         src/Wall.h
-        src/Floor.h)
+        src/Floor.h
+        src/Math.h)
 target_link_libraries(raycaster PRIVATE sfml-graphics)
 target_compile_features(raycaster PRIVATE cxx_std_20)

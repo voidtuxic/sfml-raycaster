@@ -75,7 +75,7 @@ inline void calculateWall(const int map[MAP_WIDTH][MAP_HEIGHT], const sf::Vector
     else perpWallDist = (sideDist.y - deltaDist.y);
     lineHeight = static_cast<int>(RENDER_HEIGHT / perpWallDist);
 
-    drawStart = -lineHeight * 1.5 + RENDER_HEIGHT / 2;
+    drawStart = -lineHeight / 2 + RENDER_HEIGHT / 2;
     if (drawStart < 0) drawStart = 0;
     drawEnd = lineHeight / 2 + RENDER_HEIGHT / 2;
     if (drawEnd >= RENDER_HEIGHT) drawEnd = RENDER_HEIGHT - 1;

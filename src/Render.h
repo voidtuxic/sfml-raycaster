@@ -23,7 +23,7 @@ inline void clearBuffer(sf::Uint8* buffer) {
 
 inline void applyFog(const double distance, sf::Color &color) {
     double delta = std::clamp(distance / FOG_DISTANCE, 0.0, 1.0);
-    delta *= delta;
+    delta *= delta * delta;
     color.r = std::lerp(color.r, CLEAR_COLOR.r, delta);
     color.g = std::lerp(color.g, CLEAR_COLOR.g, delta);
     color.b = std::lerp(color.b, CLEAR_COLOR.b, delta);
@@ -83,10 +83,10 @@ inline void drawFloorAndCeiling(const int y, const sf::Vector2<double> floorStep
         applyFog(rowDistance, color);
         setColor(buffer, x, y, color);
 
-        // //ceiling (symmetrical, at screenHeight - y - 1 instead of y)
-        // color = textures[CEILING_TEXTURE]->getPixel(tx, ty);
-        // applyFog(rowDistance, color);
-        // setColor(x, RENDER_HEIGHT - y - 1, color);
+        //ceiling (symmetrical, at screenHeight - y - 1 instead of y)
+        color = textures[CEILING_TEXTURE]->getPixel(tx, ty);
+        applyFog(rowDistance, color);
+        setColor(buffer, x, RENDER_HEIGHT - y - 1, color);
     }
 }
 

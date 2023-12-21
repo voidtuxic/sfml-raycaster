@@ -25,6 +25,8 @@ private:
     sf::Vector2<double> direction = sf::Vector2<double>(-1, 0);
     sf::Vector2<double> plane = sf::Vector2<double>(0, 0.9);
 
+    sf::Vector2i previousMousePosition;
+
 private:
     void handleInput();
     void render() const;

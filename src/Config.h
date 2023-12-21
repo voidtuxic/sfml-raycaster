@@ -27,6 +27,8 @@
 #define FLOOR_TEXTURE 8
 #define CEILING_TEXTURE 9
 
+#define MOUSE_SENSITIVITY 0.5
+
 inline int worldMap[MAP_WIDTH][MAP_HEIGHT] =
 {
     {8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4, 4, 6, 4, 4, 6, 4, 6, 4, 4, 4, 6, 4},
