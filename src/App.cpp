@@ -112,7 +112,7 @@ void App::handleInput() {
 void App::clearBuffer() const {
     for (int x = 0; x < RENDER_WIDTH; x++) {
         for (int y = 0; y < RENDER_HEIGHT; y++) {
-            buffer->setPixel(x, y, sf::Color::Black);
+            buffer->setPixel(x, y, sf::Color::Transparent);
         }
     }
 }
@@ -145,11 +145,11 @@ void App::performDDA(int &side, const sf::Vector2<double> &deltaDist, const sf::
         if (sideDist.x < sideDist.y) {
             sideDist.x += deltaDist.x;
             map.x += step.x;
-            side = 0;
+            side = step.x > 0 ? 0 : 2;
         } else {
             sideDist.y += deltaDist.y;
             map.y += step.y;
-            side = 1;
+            side = step.y > 0 ? 1 : 3;
         }
         //Check if ray has hit a wall
         if (worldMap[map.x][map.y] > 0) hit = 1;
@@ -179,7 +179,7 @@ void App::calculate(const int x, sf::Vector2<double> &rayDir, sf::Vector2i &map,
     performDDA(side, deltaDist, step, map, sideDist);
 
     //Calculate distance projected on camera direction (Euclidean distance would give fisheye effect!)
-    if (side == 0) perpWallDist = (sideDist.x - deltaDist.x);
+    if (side % 2 == 0) perpWallDist = (sideDist.x - deltaDist.x);
     else perpWallDist = (sideDist.y - deltaDist.y);
     lineHeight = static_cast<int>(RENDER_HEIGHT / perpWallDist);
 
@@ -217,13 +217,13 @@ void App::getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vect
 
     //calculate value of wallX
     double wallX; //where exactly the wall was hit
-    if (side == 0) wallX = position.y + perpWallDist * rayDir.y;
+    if (side % 2 == 0) wallX = position.y + perpWallDist * rayDir.y;
     else wallX = position.x + perpWallDist * rayDir.x;
     wallX -= floor((wallX));
 
     texX = static_cast<int>(wallX * static_cast<double>(TEX_WIDTH));
-    if (side == 0 && rayDir.x > 0) texX = TEX_WIDTH - texX - 1;
-    if (side == 1 && rayDir.y < 0) texX = TEX_WIDTH - texX - 1;
+    if (side % 2 == 0 && rayDir.x > 0) texX = TEX_WIDTH - texX - 1;
+    if (side % 2 == 1 && rayDir.y < 0) texX = TEX_WIDTH - texX - 1;
     step = 1.0 * TEX_HEIGHT / lineHeight;
     texPos = (drawStart - RENDER_HEIGHT / 2 + lineHeight / 2) * step;
 }
@@ -235,8 +235,7 @@ void App::drawColumn(const int x, const int side, const int drawStart, const int
         const int texY = static_cast<int>(texPos) & (TEX_HEIGHT - 1);
         texPos += step;
         auto color = textures[texNum]->getPixel(texX, texY);
-        // make color darker for y-sides: R, G and B byte each divided through two with a "shift" and an "and"
-        if (side == 1) color.a /= 2;
+        if(side % 2 == 1) color.a /= 2;
         buffer->setPixel(x, y, color);
     }
 }
@@ -256,12 +255,10 @@ void App::drawFloorAndCeiling(const int y, const sf::Vector2<double> floorStep, 
 
         // floor
         auto color = textures[FLOOR_TEXTURE]->getPixel(tx, ty);
-        color.a = 128; // make a bit darker
         buffer->setPixel(x, y, color);
 
         //ceiling (symmetrical, at screenHeight - y - 1 instead of y)
         color = textures[CEILING_TEXTURE]->getPixel(tx, ty);
-        color.a = 128; // make a bit darker
         buffer->setPixel(x, RENDER_HEIGHT - y - 1, color);
     }
 }
@@ -271,11 +268,11 @@ void App::render() const {
 
     for(int y = 0; y < RENDER_HEIGHT; y++)
     {
-      sf::Vector2<double> floorStep;
-      sf::Vector2<double> floor;
-      calculateFloor(y, floorStep, floor);
+        sf::Vector2<double> floorStep;
+        sf::Vector2<double> floor;
+        calculateFloor(y, floorStep, floor);
 
-      drawFloorAndCeiling(y, floorStep, floor);
+        drawFloorAndCeiling(y, floorStep, floor);
     }
 
     for (int x = 0; x < RENDER_WIDTH; x++) {
@@ -291,6 +288,7 @@ void App::render() const {
         double step, texPos;
         getTextureParameters(rayDir, map, perpWallDist,
                              side, lineHeight, drawStart, texNum, texX, step, texPos);
+
         drawColumn(x, side, drawStart, drawEnd, texNum, texX, step, texPos);
     }
 
