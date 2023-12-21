@@ -32,11 +32,10 @@ inline void applyFog(const double distance, sf::Color &color) {
 inline void getTextureParameters(const sf::Vector2<double> &position, const sf::Vector2<double> &rayDir,
                                  const sf::Vector2i &map, const double perpWallDist, const int side,
                                  const int lineHeight, const int drawStart, int &texNum, int &texX, double &step,
-                                 double &texPos) {
+                                 double &texPos, double &wallX) {
     texNum = worldMap[map.x][map.y] - 1;
 
     //calculate value of wallX
-    double wallX; //where exactly the wall was hit
     if (side % 2 == 0) wallX = position.y + perpWallDist * rayDir.y;
     else wallX = position.x + perpWallDist * rayDir.x;
     wallX -= floor((wallX));
@@ -52,7 +51,7 @@ inline void drawColumn(const int x, const int drawStart, const int drawEnd, cons
                        const double step, double texPos, const double perpWallDist, sf::Uint8 *buffer,
                        const std::vector<sf::Image *> &textures) {
     if(perpWallDist > FOG_DISTANCE) return;
-    for (int y = drawStart; y < drawEnd; ++y) {
+    for (int y = drawStart; y <= drawEnd; ++y) {
         // Cast the texture coordinate to integer, and mask with (TEX_HEIGHT - 1) in case of overflow
         const int texY = static_cast<int>(texPos) & (TEX_HEIGHT - 1);
         texPos += step;
@@ -62,31 +61,33 @@ inline void drawColumn(const int x, const int drawStart, const int drawEnd, cons
     }
 }
 
-inline void drawFloorAndCeiling(const int y, const sf::Vector2<double> floorStep, sf::Vector2<double> floor,
-                                const double &rowDistance, sf::Uint8 *buffer,
-                                const std::vector<sf::Image *> &textures) {
-    if(rowDistance > FOG_DISTANCE) return;
-    for(int x = 0; x < RENDER_WIDTH; ++x)
+inline void drawFloorWall(const sf::Vector2<double> &position, const int x, const double perpWallDist, int &drawEnd,
+                          const sf::Vector2<double> floorWall, sf::Uint8 *buffer,
+                          const std::vector<sf::Image *> &textures) {
+    if (drawEnd < 0) drawEnd = RENDER_HEIGHT; //becomes < 0 when the integer overflows
+
+    //draw the floor from drawEnd to the bottom of the screen
+    for(int y = drawEnd + 1; y < RENDER_HEIGHT; y++)
     {
-        // the cell coord is simply got from the integer parts of floorX and floorY
-        const auto cell = sf::Vector2i(static_cast<int>(floor.x), static_cast<int>(floor.y));
+        constexpr double distPlayer = 0.0;
+        const double currentDist = RENDER_HEIGHT / (2.0 * y - RENDER_HEIGHT); //you could make a small lookup table for this instead
 
-        // get the texture coordinate from the fractional part
-        const int tx = static_cast<int>((TEX_WIDTH * (floor.x - cell.x))) & (TEX_WIDTH - 1);
-        const int ty = static_cast<int>((TEX_HEIGHT * (floor.y - cell.y))) & (TEX_HEIGHT - 1);
+        const double weight = (currentDist - distPlayer) / (perpWallDist - distPlayer);
 
-        floor.x += floorStep.x;
-        floor.y += floorStep.y;
+        const double currentFloorX = weight * floorWall.x + (1.0 - weight) * position.x;
+        const double currentFloorY = weight * floorWall.y + (1.0 - weight) * position.y;
 
-        // floor
-        auto color = textures[FLOOR_TEXTURE]->getPixel(tx, ty);
-        applyFog(rowDistance, color);
+        const int floorTexX = static_cast<int>(currentFloorX * TEX_WIDTH) % TEX_WIDTH;
+        const int floorTexY = static_cast<int>(currentFloorY * TEX_HEIGHT) % TEX_HEIGHT;
+
+        //floor
+        auto color = textures[FLOOR_TEXTURE]->getPixel(floorTexX, floorTexY);
+        applyFog(currentDist, color);
         setColor(buffer, x, y, color);
-
-        //ceiling (symmetrical, at screenHeight - y - 1 instead of y)
-        color = textures[CEILING_TEXTURE]->getPixel(tx, ty);
-        applyFog(rowDistance, color);
-        setColor(buffer, x, RENDER_HEIGHT - y - 1, color);
+        //ceiling (symmetrical!)
+        color = textures[CEILING_TEXTURE]->getPixel(floorTexX, floorTexY);
+        applyFog(currentDist, color);
+        setColor(buffer, x, RENDER_HEIGHT - y, color);
     }
 }
 

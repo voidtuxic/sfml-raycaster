@@ -14,6 +14,8 @@
 App::App() {
     window = new sf::RenderWindow(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Raycaster");
     window->setVerticalSyncEnabled(true);
+    window->setMouseCursorGrabbed(true);
+    window->setMouseCursorVisible(false);
 
     buffer = new sf::Uint8[RENDER_WIDTH * RENDER_HEIGHT * RENDER_COMPONENTS];
 
@@ -88,7 +90,6 @@ void App::handleInput() {
 
     if(movement.x != 0 || movement.y != 0) {
         normalize(movement);
-
         if (worldMap
             [static_cast<int>(position.x + direction.x * moveSpeed * WALL_DISTANCE * movement.y)]
             [static_cast<int>(position.y)] == false)
@@ -107,7 +108,7 @@ void App::handleInput() {
             position.y -= direction.x * moveSpeed * movement.x;
     }
 
-    const auto mousePosition = sf::Mouse::getPosition(*window);
+    auto mousePosition = sf::Mouse::getPosition(*window);
     if(const auto mouseDelta = mousePosition - previousMousePosition; abs(mouseDelta.x) > 0) {
         //both camera direction and camera plane must be rotated
         const double oldDirX = direction.x;
@@ -119,6 +120,16 @@ void App::handleInput() {
         plane.y = oldPlaneX * sin(rotSpeed) + plane.y * cos(rotSpeed);
     }
     previousMousePosition = mousePosition;
+    if(mousePosition.x <= 1) {
+        mousePosition.x += WINDOW_WIDTH;
+        previousMousePosition.x += WINDOW_WIDTH;
+        sf::Mouse::setPosition(mousePosition, *window);
+    }
+    else if(mousePosition.x >= WINDOW_WIDTH - 1) {
+        mousePosition.x -= WINDOW_WIDTH;
+        previousMousePosition.x -= WINDOW_WIDTH;
+        sf::Mouse::setPosition(mousePosition, *window);
+    }
 
     sf::Event event{};
     while (window->pollEvent(event)) {
@@ -130,19 +141,10 @@ void App::handleInput() {
 void App::render() const {
     clearBuffer(buffer);
 
-    for(int y = RENDER_HEIGHT / 2; y < RENDER_HEIGHT; y++)
-    {
-        sf::Vector2<double> floorStep;
-        sf::Vector2<double> floor;
-        double rowDistance;
-        calculateFloor(position, direction, plane, y, floorStep, floor, rowDistance);
-        drawFloorAndCeiling(y, floorStep, floor, rowDistance, buffer, textures);
-    }
-
     for (int x = 0; x < RENDER_WIDTH; x++) {
         sf::Vector2<double> rayDir;
         sf::Vector2i map;
-        double perpWallDist;
+        double perpWallDist, wallX;
         int side, lineHeight, drawStart, drawEnd;
         calculateWall(worldMap, position, direction, plane, x, rayDir, map, perpWallDist,
             side, lineHeight, drawStart, drawEnd);
@@ -150,8 +152,12 @@ void App::render() const {
         int texNum, texX;
         double step, texPos;
         getTextureParameters(position, rayDir, map, perpWallDist, side, lineHeight, drawStart,
-            texNum, texX, step, texPos);
+            texNum, texX, step, texPos, wallX);
         drawColumn(x, drawStart, drawEnd, texNum, texX, step, texPos, perpWallDist, buffer, textures);
+
+        sf::Vector2<double> floorWall; //x, y position of the floor texel at the bottom of the wall
+        calculateFloorWall(rayDir, map, wallX, side, floorWall);
+        drawFloorWall(position, x, perpWallDist, drawEnd, floorWall, buffer, textures);
     }
 
     texture->update(buffer);

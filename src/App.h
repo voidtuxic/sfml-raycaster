@@ -29,6 +29,7 @@ private:
 
 private:
     void handleInput();
+
     void render() const;
 };
 
