@@ -18,20 +18,7 @@ App::App() {
 
     bufferRect = new sf::RectangleShape(sf::Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
     bufferRect->setTexture(texture, true);
-}
 
-App::~App() {
-    for (const auto image: textures) {
-        free(image);
-    }
-    textures.clear();
-    free(bufferRect);
-    free(texture);
-    free(buffer);
-    free(window);
-}
-
-int App::run() {
     textures.push_back(new sf::Image());
     textures.push_back(new sf::Image());
     textures.push_back(new sf::Image());
@@ -53,6 +40,20 @@ int App::run() {
     textures[8]->loadFromFile("textures/stone_andesite_smooth.png");
     textures[9]->loadFromFile("textures/pumpkin_top.png");
 
+}
+
+App::~App() {
+    for (const auto image: textures) {
+        free(image);
+    }
+    textures.clear();
+    free(bufferRect);
+    free(texture);
+    free(buffer);
+    free(window);
+}
+
+int App::run() {
     while (window->isOpen()) {
         handleInput();
         render();
@@ -188,6 +189,27 @@ void App::calculate(const int x, sf::Vector2<double> &rayDir, sf::Vector2i &map,
     if (drawEnd >= RENDER_HEIGHT) drawEnd = RENDER_HEIGHT - 1;
 }
 
+void App::calculateFloor(int y, sf::Vector2<double> &floorStep, sf::Vector2<double> &floor) const {
+    // rayDir for leftmost ray (x = 0) and rightmost ray (x = w)
+    const auto rayDir0 = sf::Vector2(direction.x - plane.x, direction.y - plane.y);
+    const auto rayDir1 = sf::Vector2(direction.x + plane.x, direction.y + plane.y);
+
+    // Current y position compared to the center of the screen (the horizon)
+    const int p = y - RENDER_HEIGHT / 2;
+
+    // Vertical position of the camera.
+    constexpr double posZ = 0.5 * RENDER_HEIGHT;
+
+    // Horizontal distance from the camera to the floor for the current row.
+    // 0.5 is the z position exactly in the middle between floor and ceiling.
+    const double rowDistance = posZ / p;
+
+    floorStep = sf::Vector2(rowDistance * (rayDir1.x - rayDir0.x) / RENDER_WIDTH,
+                            rowDistance * (rayDir1.y - rayDir0.y) / RENDER_WIDTH);
+
+    floor = sf::Vector2(position.x + rowDistance * rayDir0.x, position.y + rowDistance * rayDir0.y);
+}
+
 void App::getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vector2i &map,
                                const double perpWallDist, const int side, const int lineHeight, const int drawStart,
                                int &texNum, int &texX, double &step, double &texPos) const {
@@ -219,63 +241,41 @@ void App::drawColumn(const int x, const int side, const int drawStart, const int
     }
 }
 
-void App::render() const {
-    clearBuffer();
-    //FLOOR CASTING
-    for(int y = 0; y < RENDER_HEIGHT; y++)
+void App::drawFloorAndCeiling(const int y, const sf::Vector2<double> floorStep, sf::Vector2<double> floor) const {
+    for(int x = 0; x < RENDER_WIDTH; ++x)
     {
-      // rayDir for leftmost ray (x = 0) and rightmost ray (x = w)
-      const double rayDirX0 = direction.x - plane.x;
-      const double rayDirY0 = direction.y - plane.y;
-      const double rayDirX1 = direction.x + plane.x;
-      const double rayDirY1 = direction.y + plane.y;
-
-      // Current y position compared to the center of the screen (the horizon)
-      const int p = y - RENDER_HEIGHT / 2;
-
-      // Vertical position of the camera.
-      constexpr double posZ = 0.5 * RENDER_HEIGHT;
-
-      // Horizontal distance from the camera to the floor for the current row.
-      // 0.5 is the z position exactly in the middle between floor and ceiling.
-      const double rowDistance = posZ / p;
-
-      // calculate the real world step vector we have to add for each x (parallel to camera plane)
-      // adding step by step avoids multiplications with a weight in the inner loop
-      const double floorStepX = rowDistance * (rayDirX1 - rayDirX0) / RENDER_WIDTH;
-      const double floorStepY = rowDistance * (rayDirY1 - rayDirY0) / RENDER_WIDTH;
-
-      // real world coordinates of the leftmost column. This will be updated as we step to the right.
-      double floorX = position.x + rowDistance * rayDirX0;
-      double floorY = position.y + rowDistance * rayDirY0;
-
-      for(int x = 0; x < RENDER_WIDTH; ++x)
-      {
         // the cell coord is simply got from the integer parts of floorX and floorY
-        const int cellX = static_cast<int>(floorX);
-        const int cellY = static_cast<int>(floorY);
+        const auto cell = sf::Vector2i(static_cast<int>(floor.x), static_cast<int>(floor.y));
 
         // get the texture coordinate from the fractional part
-        const int tx = static_cast<int>((TEX_WIDTH * (floorX - cellX))) & (TEX_WIDTH - 1);
-        const int ty = static_cast<int>((TEX_HEIGHT * (floorY - cellY))) & (TEX_HEIGHT - 1);
+        const int tx = static_cast<int>((TEX_WIDTH * (floor.x - cell.x))) & (TEX_WIDTH - 1);
+        const int ty = static_cast<int>((TEX_HEIGHT * (floor.y - cell.y))) & (TEX_HEIGHT - 1);
 
-        floorX += floorStepX;
-        floorY += floorStepY;
-
-        // choose texture and draw the pixel
-        constexpr int floorTexture = 8;
-        constexpr int ceilingTexture = 9;
+        floor.x += floorStep.x;
+        floor.y += floorStep.y;
 
         // floor
-        auto color = textures[floorTexture]->getPixel(tx, ty);
+        auto color = textures[FLOOR_TEXTURE]->getPixel(tx, ty);
         color.a = 128; // make a bit darker
         buffer->setPixel(x, y, color);
 
         //ceiling (symmetrical, at screenHeight - y - 1 instead of y)
-        color = textures[ceilingTexture]->getPixel(tx, ty);
+        color = textures[CEILING_TEXTURE]->getPixel(tx, ty);
         color.a = 128; // make a bit darker
         buffer->setPixel(x, RENDER_HEIGHT - y - 1, color);
-      }
+    }
+}
+
+void App::render() const {
+    clearBuffer();
+
+    for(int y = 0; y < RENDER_HEIGHT; y++)
+    {
+      sf::Vector2<double> floorStep;
+      sf::Vector2<double> floor;
+      calculateFloor(y, floorStep, floor);
+
+      drawFloorAndCeiling(y, floorStep, floor);
     }
 
     for (int x = 0; x < RENDER_WIDTH; x++) {
