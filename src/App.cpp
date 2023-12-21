@@ -40,6 +40,8 @@ int App::run() {
     textures.push_back(new sf::Image());
     textures.push_back(new sf::Image());
     textures.push_back(new sf::Image());
+    textures.push_back(new sf::Image());
+    textures.push_back(new sf::Image());
     textures[0]->loadFromFile("textures/wool_colored_yellow.png");
     textures[1]->loadFromFile("textures/wool_colored_silver.png");
     textures[2]->loadFromFile("textures/wool_colored_orange.png");
@@ -48,6 +50,8 @@ int App::run() {
     textures[5]->loadFromFile("textures/wool_colored_brown.png");
     textures[6]->loadFromFile("textures/wool_colored_gray.png");
     textures[7]->loadFromFile("textures/wool_colored_red.png");
+    textures[8]->loadFromFile("textures/stone_andesite_smooth.png");
+    textures[9]->loadFromFile("textures/pumpkin_top.png");
 
     while (window->isOpen()) {
         handleInput();
@@ -104,9 +108,11 @@ void App::handleInput() {
     }
 }
 
-void App::clearBuffer(const int x) const {
-    for (int y = 0; y < RENDER_HEIGHT; y++) {
-        buffer->setPixel(x, y, sf::Color::Black);
+void App::clearBuffer() const {
+    for (int x = 0; x < RENDER_WIDTH; x++) {
+        for (int y = 0; y < RENDER_HEIGHT; y++) {
+            buffer->setPixel(x, y, sf::Color::Black);
+        }
     }
 }
 
@@ -203,7 +209,7 @@ void App::getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vect
 void App::drawColumn(const int x, const int side, const int drawStart, const int drawEnd, const int texNum,
                      const int texX, const double step, double texPos) const {
     for (int y = drawStart; y < drawEnd; ++y) {
-        // Cast the texture coordinate to integer, and mask with (texHeight - 1) in case of overflow
+        // Cast the texture coordinate to integer, and mask with (TEX_HEIGHT - 1) in case of overflow
         const int texY = static_cast<int>(texPos) & (TEX_HEIGHT - 1);
         texPos += step;
         auto color = textures[texNum]->getPixel(texX, texY);
@@ -214,9 +220,65 @@ void App::drawColumn(const int x, const int side, const int drawStart, const int
 }
 
 void App::render() const {
-    for (int x = 0; x < RENDER_WIDTH; x++) {
-        clearBuffer(x);
+    clearBuffer();
+    //FLOOR CASTING
+    for(int y = 0; y < RENDER_HEIGHT; y++)
+    {
+      // rayDir for leftmost ray (x = 0) and rightmost ray (x = w)
+      const double rayDirX0 = direction.x - plane.x;
+      const double rayDirY0 = direction.y - plane.y;
+      const double rayDirX1 = direction.x + plane.x;
+      const double rayDirY1 = direction.y + plane.y;
 
+      // Current y position compared to the center of the screen (the horizon)
+      const int p = y - RENDER_HEIGHT / 2;
+
+      // Vertical position of the camera.
+      constexpr double posZ = 0.5 * RENDER_HEIGHT;
+
+      // Horizontal distance from the camera to the floor for the current row.
+      // 0.5 is the z position exactly in the middle between floor and ceiling.
+      const double rowDistance = posZ / p;
+
+      // calculate the real world step vector we have to add for each x (parallel to camera plane)
+      // adding step by step avoids multiplications with a weight in the inner loop
+      const double floorStepX = rowDistance * (rayDirX1 - rayDirX0) / RENDER_WIDTH;
+      const double floorStepY = rowDistance * (rayDirY1 - rayDirY0) / RENDER_WIDTH;
+
+      // real world coordinates of the leftmost column. This will be updated as we step to the right.
+      double floorX = position.x + rowDistance * rayDirX0;
+      double floorY = position.y + rowDistance * rayDirY0;
+
+      for(int x = 0; x < RENDER_WIDTH; ++x)
+      {
+        // the cell coord is simply got from the integer parts of floorX and floorY
+        const int cellX = static_cast<int>(floorX);
+        const int cellY = static_cast<int>(floorY);
+
+        // get the texture coordinate from the fractional part
+        const int tx = static_cast<int>((TEX_WIDTH * (floorX - cellX))) & (TEX_WIDTH - 1);
+        const int ty = static_cast<int>((TEX_HEIGHT * (floorY - cellY))) & (TEX_HEIGHT - 1);
+
+        floorX += floorStepX;
+        floorY += floorStepY;
+
+        // choose texture and draw the pixel
+        constexpr int floorTexture = 8;
+        constexpr int ceilingTexture = 9;
+
+        // floor
+        auto color = textures[floorTexture]->getPixel(tx, ty);
+        color.a = 128; // make a bit darker
+        buffer->setPixel(x, y, color);
+
+        //ceiling (symmetrical, at screenHeight - y - 1 instead of y)
+        color = textures[ceilingTexture]->getPixel(tx, ty);
+        color.a = 128; // make a bit darker
+        buffer->setPixel(x, RENDER_HEIGHT - y - 1, color);
+      }
+    }
+
+    for (int x = 0; x < RENDER_WIDTH; x++) {
         sf::Vector2<double> rayDir;
         sf::Vector2i map;
         double perpWallDist;
