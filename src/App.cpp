@@ -10,11 +10,10 @@ App::App() {
     window = new sf::RenderWindow(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Raycaster");
     window->setVerticalSyncEnabled(true);
 
-    buffer = new sf::Image();
-    buffer->create(RENDER_WIDTH, RENDER_HEIGHT, sf::Color::Black);
+    buffer = new sf::Uint8[RENDER_WIDTH * RENDER_HEIGHT * RENDER_COMPONENTS];
 
     texture = new sf::Texture();
-    texture->loadFromImage(*buffer);
+    texture->create(RENDER_WIDTH, RENDER_HEIGHT);
 
     bufferRect = new sf::RectangleShape(sf::Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
     bufferRect->setTexture(texture, true);
@@ -49,7 +48,6 @@ App::~App() {
     textures.clear();
     free(bufferRect);
     free(texture);
-    free(buffer);
     free(window);
 }
 
@@ -109,10 +107,17 @@ void App::handleInput() {
     }
 }
 
+void App::setColor(const int x, const int y, sf::Color color) const {
+    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS] = color.r;
+    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 1] = color.g;
+    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 2] = color.b;
+    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 3] = color.a;
+}
+
 void App::clearBuffer() const {
     for (int x = 0; x < RENDER_WIDTH; x++) {
         for (int y = 0; y < RENDER_HEIGHT; y++) {
-            buffer->setPixel(x, y, sf::Color::Transparent);
+            setColor(x, y, sf::Color::Transparent);
         }
     }
 }
@@ -228,6 +233,10 @@ void App::getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vect
     texPos = (drawStart - RENDER_HEIGHT / 2 + lineHeight / 2) * step;
 }
 
+void App::applyFog(const double distance, sf::Color &color) {
+    color.a *= 1.0 - std::clamp(distance / FOG_DISTANCE, 0.0, 1.0);
+}
+
 void App::drawColumn(const int x, const int side, const int drawStart, const int drawEnd, const int texNum,
                      const int texX, const double step, double texPos, const double perpWallDist) const {
     for (int y = drawStart; y < drawEnd; ++y) {
@@ -236,8 +245,8 @@ void App::drawColumn(const int x, const int side, const int drawStart, const int
         texPos += step;
         auto color = textures[texNum]->getPixel(texX, texY);
         if(side % 2 == 1) color.a /= 2;
-        color.a *= 1.0 - std::clamp(perpWallDist / FOG_DISTANCE, 0.0, 1.0);
-        buffer->setPixel(x, y, color);
+        applyFog(perpWallDist, color);
+        setColor(x, y, color);
     }
 }
 
@@ -257,18 +266,18 @@ void App::drawFloorAndCeiling(const int y, const sf::Vector2<double> floorStep, 
 
         // floor
         auto color = textures[FLOOR_TEXTURE]->getPixel(tx, ty);
-        color.a *= 1.0 - std::clamp(rowDistance / FOG_DISTANCE, 0.0, 1.0);
-        buffer->setPixel(x, y, color);
+        applyFog(rowDistance, color);
+        setColor(x, y, color);
 
         //ceiling (symmetrical, at screenHeight - y - 1 instead of y)
         color = textures[CEILING_TEXTURE]->getPixel(tx, ty);
-        color.a *= 1.0 - std::clamp(rowDistance / FOG_DISTANCE, 0.0, 1.0);
-        buffer->setPixel(x, RENDER_HEIGHT - y - 1, color);
+        applyFog(rowDistance, color);
+        setColor(x, RENDER_HEIGHT - y - 1, color);
     }
 }
 
 void App::render() const {
-    clearBuffer();
+    // clearBuffer();
 
     for(int y = 0; y < RENDER_HEIGHT; y++)
     {
@@ -297,7 +306,7 @@ void App::render() const {
         drawColumn(x, side, drawStart, drawEnd, texNum, texX, step, texPos, perpWallDist);
     }
 
-    texture->update(*buffer);
+    texture->update(buffer);
     window->clear(sf::Color::Black);
     window->draw(*bufferRect);
     window->display();

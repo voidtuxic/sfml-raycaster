@@ -14,6 +14,8 @@
 #define WINDOW_HEIGHT 1080
 #define RENDER_WIDTH 640
 #define RENDER_HEIGHT 360
+#define RENDER_COMPONENTS 4
+#define RENDER_STRIDE RENDER_WIDTH * RENDER_COMPONENTS
 #define WALL_DISTANCE 8
 #define FLOOR_TEXTURE 8
 #define CEILING_TEXTURE 9
@@ -58,7 +60,7 @@ public:
 private:
     sf::RenderWindow *window;
     sf::Clock deltaClock;
-    sf::Image *buffer;
+    sf::Uint8 *buffer;
     sf::Texture *texture;
     sf::RectangleShape *bufferRect;
 
@@ -70,6 +72,8 @@ private:
 
 private:
     void handleInput();
+
+    void setColor(int x, int y, sf::Color color) const;
 
     void clearBuffer() const;
 
@@ -93,6 +97,8 @@ private:
     auto getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vector2i &map, double perpWallDist, int side,
                               int lineHeight, int drawStart, int &texNum, int &texX, double &step,
                               double &texPos) const -> void;
+
+    static void applyFog(double distance, sf::Color &color);
 
     void render() const;
 };
