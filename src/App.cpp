@@ -111,64 +111,6 @@ void App::handleInput() {
     }
 }
 
-void App::getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vector2i &map,
-                               const double perpWallDist, const int side, const int lineHeight, const int drawStart,
-                               int &texNum, int &texX, double &step, double &texPos) const {
-    texNum = worldMap[map.x][map.y] - 1;
-
-    //calculate value of wallX
-    double wallX; //where exactly the wall was hit
-    if (side % 2 == 0) wallX = position.y + perpWallDist * rayDir.y;
-    else wallX = position.x + perpWallDist * rayDir.x;
-    wallX -= floor((wallX));
-
-    texX = static_cast<int>(wallX * static_cast<double>(TEX_WIDTH));
-    if (side % 2 == 0 && rayDir.x > 0) texX = TEX_WIDTH - texX - 1;
-    if (side % 2 == 1 && rayDir.y < 0) texX = TEX_WIDTH - texX - 1;
-    step = 1.0 * TEX_HEIGHT / lineHeight;
-    texPos = (drawStart - RENDER_HEIGHT / 2 + lineHeight / 2) * step;
-}
-
-void App::drawColumn(const int x, const int side, const int drawStart, const int drawEnd, const int texNum,
-                     const int texX, const double step, double texPos, const double perpWallDist) const {
-    if(perpWallDist > FOG_DISTANCE) return;
-    for (int y = drawStart; y < drawEnd; ++y) {
-        // Cast the texture coordinate to integer, and mask with (TEX_HEIGHT - 1) in case of overflow
-        const int texY = static_cast<int>(texPos) & (TEX_HEIGHT - 1);
-        texPos += step;
-        auto color = textures[texNum]->getPixel(texX, texY);
-        applyFog(perpWallDist, color);
-        setColor(buffer, x, y, color);
-    }
-}
-
-void App::drawFloorAndCeiling(const int y, const sf::Vector2<double> floorStep, sf::Vector2<double> floor,
-                              const double &rowDistance) const {
-    if(rowDistance > FOG_DISTANCE) return;
-    for(int x = 0; x < RENDER_WIDTH; ++x)
-    {
-        // the cell coord is simply got from the integer parts of floorX and floorY
-        const auto cell = sf::Vector2i(static_cast<int>(floor.x), static_cast<int>(floor.y));
-
-        // get the texture coordinate from the fractional part
-        const int tx = static_cast<int>((TEX_WIDTH * (floor.x - cell.x))) & (TEX_WIDTH - 1);
-        const int ty = static_cast<int>((TEX_HEIGHT * (floor.y - cell.y))) & (TEX_HEIGHT - 1);
-
-        floor.x += floorStep.x;
-        floor.y += floorStep.y;
-
-        // floor
-        auto color = textures[FLOOR_TEXTURE]->getPixel(tx, ty);
-        applyFog(rowDistance, color);
-        setColor(buffer, x, y, color);
-
-        // //ceiling (symmetrical, at screenHeight - y - 1 instead of y)
-        // color = textures[CEILING_TEXTURE]->getPixel(tx, ty);
-        // applyFog(rowDistance, color);
-        // setColor(x, RENDER_HEIGHT - y - 1, color);
-    }
-}
-
 void App::render() const {
     clearBuffer(buffer);
 
@@ -178,7 +120,7 @@ void App::render() const {
         sf::Vector2<double> floor;
         double rowDistance;
         calculateFloor(position, direction, plane, y, floorStep, floor, rowDistance);
-        drawFloorAndCeiling(y, floorStep, floor, rowDistance);
+        drawFloorAndCeiling(y, floorStep, floor, rowDistance, buffer, textures);
     }
 
     for (int x = 0; x < RENDER_WIDTH; x++) {
@@ -191,8 +133,9 @@ void App::render() const {
 
         int texNum, texX;
         double step, texPos;
-        getTextureParameters(rayDir, map, perpWallDist, side, lineHeight, drawStart, texNum, texX, step, texPos);
-        drawColumn(x, side, drawStart, drawEnd, texNum, texX, step, texPos, perpWallDist);
+        getTextureParameters(position, rayDir, map, perpWallDist, side, lineHeight, drawStart,
+            texNum, texX, step, texPos);
+        drawColumn(x, drawStart, drawEnd, texNum, texX, step, texPos, perpWallDist, buffer, textures);
     }
 
     texture->update(buffer);

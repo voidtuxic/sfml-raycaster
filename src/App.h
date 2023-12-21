@@ -8,11 +8,9 @@
 
 class App {
 public:
-    int run();
-
     App();
-
     ~App();
+    int run();
 
 private:
     sf::RenderWindow *window;
@@ -29,16 +27,6 @@ private:
 
 private:
     void handleInput();
-
-    void drawColumn(int x, int side, int drawStart, int drawEnd, int texNum, int texX, double step,
-                    double texPos, double perpWallDist) const;
-
-    void drawFloorAndCeiling(int y, sf::Vector2<double> floorStep, sf::Vector2<double> floor, const double &rowDistance) const;
-
-    auto getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vector2i &map, double perpWallDist, int side,
-                              int lineHeight, int drawStart, int &texNum, int &texX, double &step,
-                              double &texPos) const -> void;
-
     void render() const;
 };
 
