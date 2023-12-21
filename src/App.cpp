@@ -67,34 +67,34 @@ void App::handleInput() {
     const double rotSpeed = frameTime * 3.0; //the constant value is in radians/second
 
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::W)) {
-        if (worldMap[static_cast<int>(posX + dirX * moveSpeed * WALL_DISTANCE)][static_cast<int>(posY)] == false)
-            posX += dirX * moveSpeed;
-        if (worldMap[static_cast<int>(posX)][static_cast<int>(posY + dirY * moveSpeed * WALL_DISTANCE)] == false)
-            posY += dirY * moveSpeed;
+        if (worldMap[static_cast<int>(position.x + direction.x * moveSpeed * WALL_DISTANCE)][static_cast<int>(position.y)] == false)
+            position.x += direction.x * moveSpeed;
+        if (worldMap[static_cast<int>(position.x)][static_cast<int>(position.y + direction.y * moveSpeed * WALL_DISTANCE)] == false)
+            position.y += direction.y * moveSpeed;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::S)) {
-        if (worldMap[static_cast<int>(posX - dirX * moveSpeed * WALL_DISTANCE)][static_cast<int>(posY)] == false)
-            posX -= dirX * moveSpeed;
-        if (worldMap[static_cast<int>(posX)][static_cast<int>(posY - dirY * moveSpeed * WALL_DISTANCE)] == false)
-            posY -= dirY * moveSpeed;
+        if (worldMap[static_cast<int>(position.x - direction.x * moveSpeed * WALL_DISTANCE)][static_cast<int>(position.y)] == false)
+            position.x -= direction.x * moveSpeed;
+        if (worldMap[static_cast<int>(position.x)][static_cast<int>(position.y - direction.y * moveSpeed * WALL_DISTANCE)] == false)
+            position.y -= direction.y * moveSpeed;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::D)) {
         //both camera direction and camera plane must be rotated
-        const double oldDirX = dirX;
-        dirX = dirX * cos(-rotSpeed) - dirY * sin(-rotSpeed);
-        dirY = oldDirX * sin(-rotSpeed) + dirY * cos(-rotSpeed);
-        const double oldPlaneX = planeX;
-        planeX = planeX * cos(-rotSpeed) - planeY * sin(-rotSpeed);
-        planeY = oldPlaneX * sin(-rotSpeed) + planeY * cos(-rotSpeed);
+        const double oldDirX = direction.x;
+        direction.x = direction.x * cos(-rotSpeed) - direction.y * sin(-rotSpeed);
+        direction.y = oldDirX * sin(-rotSpeed) + direction.y * cos(-rotSpeed);
+        const double oldPlaneX = plane.x;
+        plane.x = plane.x * cos(-rotSpeed) - plane.y * sin(-rotSpeed);
+        plane.y = oldPlaneX * sin(-rotSpeed) + plane.y * cos(-rotSpeed);
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::A)) {
         //both camera direction and camera plane must be rotated
-        const double oldDirX = dirX;
-        dirX = dirX * cos(rotSpeed) - dirY * sin(rotSpeed);
-        dirY = oldDirX * sin(rotSpeed) + dirY * cos(rotSpeed);
-        const double oldPlaneX = planeX;
-        planeX = planeX * cos(rotSpeed) - planeY * sin(rotSpeed);
-        planeY = oldPlaneX * sin(rotSpeed) + planeY * cos(rotSpeed);
+        const double oldDirX = direction.x;
+        direction.x = direction.x * cos(rotSpeed) - direction.y * sin(rotSpeed);
+        direction.y = oldDirX * sin(rotSpeed) + direction.y * cos(rotSpeed);
+        const double oldPlaneX = plane.x;
+        plane.x = plane.x * cos(rotSpeed) - plane.y * sin(rotSpeed);
+        plane.y = oldPlaneX * sin(rotSpeed) + plane.y * cos(rotSpeed);
     }
 
     sf::Event event{};
@@ -111,26 +111,26 @@ void App::clearBuffer(const int x) const {
 }
 
 void App::calculateStep(const sf::Vector2<double> &rayDir, const sf::Vector2<double> &deltaDist,
-                        const sf::Vector2i map, sf::Vector2<double> &sideDist,
+                        const sf::Vector2i &map, sf::Vector2<double> &sideDist,
                         sf::Vector2i &step) const {
     //what direction to step in x or y-direction (either +1 or -1)
     if (rayDir.x < 0) {
         step.x = -1;
-        sideDist.x = (posX - map.x) * deltaDist.x;
+        sideDist.x = (position.x - map.x) * deltaDist.x;
     } else {
         step.x = 1;
-        sideDist.x = (map.x + 1.0 - posX) * deltaDist.x;
+        sideDist.x = (map.x + 1.0 - position.x) * deltaDist.x;
     }
     if (rayDir.y < 0) {
         step.y = -1;
-        sideDist.y = (posY - map.y) * deltaDist.y;
+        sideDist.y = (position.y - map.y) * deltaDist.y;
     } else {
         step.y = 1;
-        sideDist.y = (map.y + 1.0 - posY) * deltaDist.y;
+        sideDist.y = (map.y + 1.0 - position.y) * deltaDist.y;
     }
 }
 
-void App::performDDA(int &side, const sf::Vector2<double> &deltaDist, const sf::Vector2i &step, sf::Vector2i map,
+void App::performDDA(int &side, const sf::Vector2<double> &deltaDist, const sf::Vector2i &step, sf::Vector2i &map,
                      sf::Vector2<double> &sideDist) {
     int hit = 0; //was there a wall hit?
     while (hit == 0) {
@@ -149,13 +149,12 @@ void App::performDDA(int &side, const sf::Vector2<double> &deltaDist, const sf::
     }
 }
 
-void App::calculate(const int x, sf::Vector2<double> &rayDir, sf::Vector2i map, double &perpWallDist,
-                    int &side,
+void App::calculate(const int x, sf::Vector2<double> &rayDir, sf::Vector2i &map, double &perpWallDist, int &side,
                     int &lineHeight, int &drawStart, int &drawEnd) const {
     //calculate ray position and direction
     const double cameraX = 2 * x / static_cast<double>(RENDER_WIDTH) - 1; //x-coordinate in camera space
-    rayDir = sf::Vector2(dirX + planeX * cameraX, dirY + planeY * cameraX);
-    map = sf::Vector2i(static_cast<int>(posX), static_cast<int>(posY));
+    rayDir = sf::Vector2(direction.x + plane.x * cameraX, direction.y + plane.y * cameraX);
+    map = sf::Vector2i(static_cast<int>(position.x), static_cast<int>(position.y));
 
     //length of ray from current position to next x or y-side
     sf::Vector2<double> sideDist;
@@ -183,15 +182,15 @@ void App::calculate(const int x, sf::Vector2<double> &rayDir, sf::Vector2i map, 
     if (drawEnd >= RENDER_HEIGHT) drawEnd = RENDER_HEIGHT - 1;
 }
 
-void App::getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vector2i map,
+void App::getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vector2i &map,
                                const double perpWallDist, const int side, const int lineHeight, const int drawStart,
                                int &texNum, int &texX, double &step, double &texPos) const {
     texNum = worldMap[map.x][map.y] - 1;
 
     //calculate value of wallX
     double wallX; //where exactly the wall was hit
-    if (side == 0) wallX = posY + perpWallDist * rayDir.y;
-    else wallX = posX + perpWallDist * rayDir.x;
+    if (side == 0) wallX = position.y + perpWallDist * rayDir.y;
+    else wallX = position.x + perpWallDist * rayDir.x;
     wallX -= floor((wallX));
 
     texX = static_cast<int>(wallX * static_cast<double>(TEX_WIDTH));
@@ -219,7 +218,7 @@ void App::render() const {
         clearBuffer(x);
 
         sf::Vector2<double> rayDir;
-        const sf::Vector2i map;
+        sf::Vector2i map;
         double perpWallDist;
         int side, lineHeight, drawStart, drawEnd;
 
@@ -230,7 +229,6 @@ void App::render() const {
         double step, texPos;
         getTextureParameters(rayDir, map, perpWallDist,
                              side, lineHeight, drawStart, texNum, texX, step, texPos);
-        //draw the pixels of the stripe as a vertical line
         drawColumn(x, side, drawStart, drawEnd, texNum, texX, step, texPos);
     }
 

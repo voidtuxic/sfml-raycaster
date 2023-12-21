@@ -61,12 +61,9 @@ private:
 
     std::vector<sf::Image *> textures;
 
-    double posX = 22;
-    double posY = 11.5;
-    double dirX = -1;
-    double dirY = 0;
-    double planeX = 0;
-    double planeY = 0.9;
+    sf::Vector2<double> position = sf::Vector2<double>(22, 11.5);
+    sf::Vector2<double> direction = sf::Vector2<double>(-1, 0);
+    sf::Vector2<double> plane = sf::Vector2<double>(0, 0.9);
 
 private:
     void handleInput();
@@ -74,19 +71,19 @@ private:
     void clearBuffer(int x) const;
 
     auto calculateStep(const sf::Vector2<double> &rayDir, const sf::Vector2<double> &deltaDist,
-                       sf::Vector2i map, sf::Vector2<double> &sideDist,
+                       const sf::Vector2i &map, sf::Vector2<double> &sideDist,
                        sf::Vector2i &step) const -> void;
 
-    static auto performDDA(int &side, const sf::Vector2<double> &deltaDist, const sf::Vector2i &step, sf::Vector2i map,
+    static auto performDDA(int &side, const sf::Vector2<double> &deltaDist, const sf::Vector2i &step, sf::Vector2i &map,
                            sf::Vector2<double> &sideDist) -> void;
 
-    auto calculate(int x, sf::Vector2<double> &rayDir, sf::Vector2i map, double &perpWallDist,
+    auto calculate(int x, sf::Vector2<double> &rayDir, sf::Vector2i &map, double &perpWallDist,
                    int &side, int &lineHeight, int &drawStart, int &drawEnd) const -> void;
 
     void drawColumn(int x, int side, int drawStart, int drawEnd, int texNum, int texX, double step,
                     double texPos) const;
 
-    auto getTextureParameters(const sf::Vector2<double> &rayDir, sf::Vector2i map, double perpWallDist, int side,
+    auto getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vector2i &map, double perpWallDist, int side,
                               int lineHeight, int drawStart, int &texNum, int &texX, double &step,
                               double &texPos) const -> void;
 
