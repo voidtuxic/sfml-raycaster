@@ -2,9 +2,13 @@
 // Created by tuxic on 21/12/2023.
 //
 
-#include "App.h"
-
 #include <cmath>
+#include "App.h"
+#include "Config.h"
+#include "Floor.h"
+#include "Render.h"
+#include "Wall.h"
+
 
 App::App() {
     window = new sf::RenderWindow(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Raycaster");
@@ -107,114 +111,6 @@ void App::handleInput() {
     }
 }
 
-void App::setColor(const int x, const int y, sf::Color color) const {
-    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS] = color.r;
-    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 1] = color.g;
-    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 2] = color.b;
-    buffer[y * RENDER_STRIDE + x * RENDER_COMPONENTS + 3] = color.a;
-}
-
-void App::clearBuffer() const {
-    for (int x = 0; x < RENDER_WIDTH; x++) {
-        for (int y = 0; y < RENDER_HEIGHT; y++) {
-            setColor(x, y, sf::Color::Transparent);
-        }
-    }
-}
-
-void App::calculateStep(const sf::Vector2<double> &rayDir, const sf::Vector2<double> &deltaDist,
-                        const sf::Vector2i &map, sf::Vector2<double> &sideDist,
-                        sf::Vector2i &step) const {
-    //what direction to step in x or y-direction (either +1 or -1)
-    if (rayDir.x < 0) {
-        step.x = -1;
-        sideDist.x = (position.x - map.x) * deltaDist.x;
-    } else {
-        step.x = 1;
-        sideDist.x = (map.x + 1.0 - position.x) * deltaDist.x;
-    }
-    if (rayDir.y < 0) {
-        step.y = -1;
-        sideDist.y = (position.y - map.y) * deltaDist.y;
-    } else {
-        step.y = 1;
-        sideDist.y = (map.y + 1.0 - position.y) * deltaDist.y;
-    }
-}
-
-void App::performDDA(int &side, const sf::Vector2<double> &deltaDist, const sf::Vector2i &step, sf::Vector2i &map,
-                     sf::Vector2<double> &sideDist) {
-    int hit = 0; //was there a wall hit?
-    while (hit == 0) {
-        //jump to next map square, either in x-direction, or in y-direction
-        if (sideDist.x < sideDist.y) {
-            sideDist.x += deltaDist.x;
-            map.x += step.x;
-            side = step.x > 0 ? 0 : 2;
-        } else {
-            sideDist.y += deltaDist.y;
-            map.y += step.y;
-            side = step.y > 0 ? 1 : 3;
-        }
-        //Check if ray has hit a wall
-        if (worldMap[map.x][map.y] > 0) hit = 1;
-    }
-}
-
-void App::calculate(const int x, sf::Vector2<double> &rayDir, sf::Vector2i &map, double &perpWallDist, int &side,
-                    int &lineHeight, int &drawStart, int &drawEnd) const {
-    //calculate ray position and direction
-    const double cameraX = 2 * x / static_cast<double>(RENDER_WIDTH) - 1; //x-coordinate in camera space
-    rayDir = sf::Vector2(direction.x + plane.x * cameraX, direction.y + plane.y * cameraX);
-    map = sf::Vector2i(static_cast<int>(position.x), static_cast<int>(position.y));
-
-    //length of ray from current position to next x or y-side
-    sf::Vector2<double> sideDist;
-    sf::Vector2i step;
-
-    //length of ray from one x or y-side to next x or y-side
-    const sf::Vector2<double> deltaDist = sf::Vector2<double>(
-        (rayDir.x == 0) ? 1e30 : std::abs(1 / rayDir.x),
-        (rayDir.y == 0) ? 1e30 : std::abs(1 / rayDir.y));
-
-    //calculate step and initial sideDist
-    calculateStep(rayDir, deltaDist, map, sideDist, step);
-
-    //perform DDA
-    performDDA(side, deltaDist, step, map, sideDist);
-
-    //Calculate distance projected on camera direction (Euclidean distance would give fisheye effect!)
-    if (side % 2 == 0) perpWallDist = (sideDist.x - deltaDist.x);
-    else perpWallDist = (sideDist.y - deltaDist.y);
-    lineHeight = static_cast<int>(RENDER_HEIGHT / perpWallDist);
-
-    drawStart = -lineHeight / 2 + RENDER_HEIGHT / 2;
-    if (drawStart < 0) drawStart = 0;
-    drawEnd = lineHeight / 2 + RENDER_HEIGHT / 2;
-    if (drawEnd >= RENDER_HEIGHT) drawEnd = RENDER_HEIGHT - 1;
-}
-
-void App::calculateFloor(int y, sf::Vector2<double> &floorStep, sf::Vector2<double> &floor, double &rowDistance) const {
-    // rayDir for leftmost ray (x = 0) and rightmost ray (x = w)
-    const auto rayDir0 = sf::Vector2(direction.x - plane.x, direction.y - plane.y);
-    const auto rayDir1 = sf::Vector2(direction.x + plane.x, direction.y + plane.y);
-
-    // Current y position compared to the center of the screen (the horizon)
-    const int p = y - RENDER_HEIGHT / 2;
-
-    // Vertical position of the camera.
-    constexpr double posZ = 0.5 * RENDER_HEIGHT;
-
-    // Horizontal distance from the camera to the floor for the current row.
-    // 0.5 is the z position exactly in the middle between floor and ceiling.
-    rowDistance = posZ / p;
-
-    floorStep = sf::Vector2(rowDistance * (rayDir1.x - rayDir0.x) / RENDER_WIDTH,
-                            rowDistance * (rayDir1.y - rayDir0.y) / RENDER_WIDTH);
-
-    floor = sf::Vector2(position.x + rowDistance * rayDir0.x, position.y + rowDistance * rayDir0.y);
-}
-
 void App::getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vector2i &map,
                                const double perpWallDist, const int side, const int lineHeight, const int drawStart,
                                int &texNum, int &texX, double &step, double &texPos) const {
@@ -233,25 +129,22 @@ void App::getTextureParameters(const sf::Vector2<double> &rayDir, const sf::Vect
     texPos = (drawStart - RENDER_HEIGHT / 2 + lineHeight / 2) * step;
 }
 
-void App::applyFog(const double distance, sf::Color &color) {
-    color.a *= 1.0 - std::clamp(distance / FOG_DISTANCE, 0.0, 1.0);
-}
-
 void App::drawColumn(const int x, const int side, const int drawStart, const int drawEnd, const int texNum,
                      const int texX, const double step, double texPos, const double perpWallDist) const {
+    if(perpWallDist > FOG_DISTANCE) return;
     for (int y = drawStart; y < drawEnd; ++y) {
         // Cast the texture coordinate to integer, and mask with (TEX_HEIGHT - 1) in case of overflow
         const int texY = static_cast<int>(texPos) & (TEX_HEIGHT - 1);
         texPos += step;
         auto color = textures[texNum]->getPixel(texX, texY);
-        if(side % 2 == 1) color.a /= 2;
         applyFog(perpWallDist, color);
-        setColor(x, y, color);
+        setColor(buffer, x, y, color);
     }
 }
 
 void App::drawFloorAndCeiling(const int y, const sf::Vector2<double> floorStep, sf::Vector2<double> floor,
-                              double &rowDistance) const {
+                              const double &rowDistance) const {
+    if(rowDistance > FOG_DISTANCE) return;
     for(int x = 0; x < RENDER_WIDTH; ++x)
     {
         // the cell coord is simply got from the integer parts of floorX and floorY
@@ -267,25 +160,24 @@ void App::drawFloorAndCeiling(const int y, const sf::Vector2<double> floorStep, 
         // floor
         auto color = textures[FLOOR_TEXTURE]->getPixel(tx, ty);
         applyFog(rowDistance, color);
-        setColor(x, y, color);
+        setColor(buffer, x, y, color);
 
-        //ceiling (symmetrical, at screenHeight - y - 1 instead of y)
-        color = textures[CEILING_TEXTURE]->getPixel(tx, ty);
-        applyFog(rowDistance, color);
-        setColor(x, RENDER_HEIGHT - y - 1, color);
+        // //ceiling (symmetrical, at screenHeight - y - 1 instead of y)
+        // color = textures[CEILING_TEXTURE]->getPixel(tx, ty);
+        // applyFog(rowDistance, color);
+        // setColor(x, RENDER_HEIGHT - y - 1, color);
     }
 }
 
 void App::render() const {
-    // clearBuffer();
+    clearBuffer(buffer);
 
-    for(int y = 0; y < RENDER_HEIGHT; y++)
+    for(int y = RENDER_HEIGHT / 2; y < RENDER_HEIGHT; y++)
     {
         sf::Vector2<double> floorStep;
         sf::Vector2<double> floor;
         double rowDistance;
-        calculateFloor(y, floorStep, floor, rowDistance);
-
+        calculateFloor(position, direction, plane, y, floorStep, floor, rowDistance);
         drawFloorAndCeiling(y, floorStep, floor, rowDistance);
     }
 
@@ -294,15 +186,12 @@ void App::render() const {
         sf::Vector2i map;
         double perpWallDist;
         int side, lineHeight, drawStart, drawEnd;
-
-        calculate(x, rayDir, map, perpWallDist,
-                  side, lineHeight, drawStart, drawEnd);
+        calculateWall(worldMap, position, direction, plane, x, rayDir, map, perpWallDist,
+            side, lineHeight, drawStart, drawEnd);
 
         int texNum, texX;
         double step, texPos;
-        getTextureParameters(rayDir, map, perpWallDist,
-                             side, lineHeight, drawStart, texNum, texX, step, texPos);
-
+        getTextureParameters(rayDir, map, perpWallDist, side, lineHeight, drawStart, texNum, texX, step, texPos);
         drawColumn(x, side, drawStart, drawEnd, texNum, texX, step, texPos, perpWallDist);
     }
 
