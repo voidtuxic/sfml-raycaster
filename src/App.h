@@ -17,6 +17,7 @@ public:
 private:
     sf::RenderWindow *window;
     sf::Clock deltaClock;
+    sf::Clock clock;
 
     sf::Texture *texture;
     sf::RectangleShape *bufferRect;
@@ -29,7 +30,7 @@ private:
 private:
     void loadTexture(const std::string & filename) const;
 
-    void handleKeyboard(double frameTime) const;
+    void handleKeyboard(double frameTime, double totalTime) const;
 
     void handleMouse(double frameTime);
 

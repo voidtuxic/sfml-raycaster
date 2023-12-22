@@ -64,7 +64,7 @@ void App::loadTexture(const std::string &filename) const {
     renderData->textures[renderData->textures.size() - 1]->loadFromFile(filename);
 }
 
-void App::handleKeyboard(const double frameTime) const {
+void App::handleKeyboard(const double frameTime, const double totalTime) const {
     const double moveSpeed = frameTime * 5.0; //the constant value is in squares/second
     sf::Vector2<double> movement;
 
@@ -99,40 +99,61 @@ void App::handleKeyboard(const double frameTime) const {
             [static_cast<int>(camera->position.x)]
             [static_cast<int>(camera->position.y - camera->direction.x * moveSpeed * WALL_DISTANCE * movement.x)] == false)
             camera->position.y -= camera->direction.x * moveSpeed * movement.x;
+
+        camera->positionZ = std::cos(totalTime * 16) * 8;
+    }
+    else {
+        camera->positionZ = 0;
     }
 }
 
 void App::handleMouse(const double frameTime) {
     auto mousePosition = sf::Mouse::getPosition(*window);
-    if(const auto mouseDelta = mousePosition - previousMousePosition; abs(mouseDelta.x) > 0) {
+    const auto mouseDelta = mousePosition - previousMousePosition;
+
+    if(abs(mouseDelta.x) > 0) {
         //both camera direction and camera plane must be rotated
         const double oldDirX = camera->direction.x;
-        const double rotSpeed = frameTime * -mouseDelta.x * MOUSE_SENSITIVITY; //the constant value is in radians/second
+        const double rotSpeed = frameTime * -mouseDelta.x * MOUSE_SENSITIVITY_HORIZONTAL; //the constant value is in radians/second
         camera->direction.x = camera->direction.x * cos(rotSpeed) - camera->direction.y * sin(rotSpeed);
         camera->direction.y = oldDirX * sin(rotSpeed) + camera->direction.y * cos(rotSpeed);
         const double oldPlaneX = camera->plane.x;
         camera->plane.x = camera->plane.x * cos(rotSpeed) - camera->plane.y * sin(rotSpeed);
         camera->plane.y = oldPlaneX * sin(rotSpeed) + camera->plane.y * cos(rotSpeed);
     }
+
+    if(abs(mouseDelta.y) > 0) {
+        const double rotSpeed = frameTime * -mouseDelta.y * MOUSE_SENSITIVITY_VERTICAL; //the constant value is in radians/second
+        camera->pitch = std::clamp(camera->pitch + rotSpeed, -MOUSE_VERTICAL_PITCH, MOUSE_VERTICAL_PITCH);
+    }
+
     previousMousePosition = mousePosition;
     if(mousePosition.x <= 1) {
         mousePosition.x += WINDOW_WIDTH;
         previousMousePosition.x += WINDOW_WIDTH;
-        sf::Mouse::setPosition(mousePosition, *window);
     }
     else if(mousePosition.x >= WINDOW_WIDTH - 1) {
         mousePosition.x -= WINDOW_WIDTH;
         previousMousePosition.x -= WINDOW_WIDTH;
-        sf::Mouse::setPosition(mousePosition, *window);
     }
+    if(mousePosition.y <= 1) {
+        mousePosition.y += WINDOW_HEIGHT;
+        previousMousePosition.y += WINDOW_HEIGHT;
+    }
+    else if(mousePosition.y >= WINDOW_HEIGHT - 1) {
+        mousePosition.y -= WINDOW_HEIGHT;
+        previousMousePosition.y -= WINDOW_HEIGHT;
+    }
+    sf::Mouse::setPosition(mousePosition, *window);
 }
 
 void App::handleInput() {
     //timing for input and FPS counter
     const sf::Time dt = deltaClock.restart();
     const double frameTime = dt.asSeconds();
+    const double totalTime = clock.getElapsedTime().asSeconds();
 
-    handleKeyboard(frameTime);
+    handleKeyboard(frameTime, totalTime);
     handleMouse(frameTime);
 
     sf::Event event{};
@@ -147,12 +168,12 @@ void App::render() const {
 
     for (int x = 0; x < RENDER_WIDTH; x++) {
         RaycastData raycast;
-        calculateWall(x, raycast, worldMap, camera);
-        raycast.populateTextureParameters(camera->position);
+        calculateWall(x, raycast, worldMap, camera, renderData->wallHeight);
+        raycast.populateTextureParameters(camera->position, camera->positionZ / raycast.wallDistance, camera->pitch);
         drawColumn(x, raycast, renderData);
 
         calculateFloorWall(raycast);
-        drawFloorWall(x, raycast, camera->position, renderData);
+        drawFloorWall(x, raycast, camera, renderData);
     }
 
     texture->update(renderData->buffer);
