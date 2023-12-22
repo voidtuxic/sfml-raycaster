@@ -24,7 +24,6 @@ struct CameraData {
 struct RenderData {
     sf::Uint8 *buffer;
     std::vector<sf::Image *> textures;
-    int wallHeight = 3;
 
     void clearBuffer() const {
         for (int x = 0; x < RENDER_WIDTH; x++) {
@@ -56,6 +55,7 @@ struct RaycastData {
     double step{};
     double texturePosition{};
     sf::Vector2<double> floorWall;
+    int wallHeight = 3;
 
     void populateTextureParameters(const sf::Vector2<double> &position, const double &positionZ, const double &pitch) {
         textureId = worldMap[mapPosition.x][mapPosition.y] - 1;
@@ -98,9 +98,10 @@ inline void drawFloorWall(const int x, RaycastData &raycast,
     if (raycast.drawEnd < 0) raycast.drawEnd = RENDER_HEIGHT; //becomes < 0 when the integer overflows
 
     // ceiling
-    for (int y = raycast.drawStart; y >= 0; y--) {
+    for (int y = raycast.drawStart - 1; y >= 0; y--) {
         constexpr double distPlayer = 0.0;
-        const double ceilingHeight = 2.0 * (renderData->wallHeight - 1) * RENDER_HEIGHT;
+
+        const double ceilingHeight = 2.0 * (raycast.wallHeight - 1) * RENDER_HEIGHT;
         const double currentDist = (RENDER_HEIGHT - 2.0 * camera->positionZ + ceilingHeight) / (RENDER_HEIGHT - 2.0 * (y - camera->pitch));
         //you could make a small lookup table for this instead
 

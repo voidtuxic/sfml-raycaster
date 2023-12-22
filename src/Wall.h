@@ -46,7 +46,7 @@ inline void performDDA(const int map[MAP_WIDTH][MAP_HEIGHT], int &side, const sf
     }
 }
 
-inline void calculateWall(const int x, RaycastData &raycast, const int map[MAP_WIDTH][MAP_HEIGHT], const CameraData* camera, const int &wallHeight) {
+inline void calculateWall(const int x, RaycastData &raycast, const int map[MAP_WIDTH][MAP_HEIGHT], const CameraData* camera) {
     //calculate ray position and direction
     const double cameraX = 2 * x / static_cast<double>(RENDER_WIDTH) - 1; //x-coordinate in camera space
     raycast.rayDirection = sf::Vector2(camera->direction.x + camera->plane.x * cameraX, camera->direction.y + camera->plane.y * cameraX);
@@ -72,6 +72,7 @@ inline void calculateWall(const int x, RaycastData &raycast, const int map[MAP_W
     else raycast.wallDistance = (sideDist.y - deltaDist.y);
     raycast.lineHeight = static_cast<int>(RENDER_HEIGHT / raycast.wallDistance);
 
+    auto wallHeight = raycast.wallHeight;
     raycast.drawStart = -raycast.lineHeight * (0.5 + wallHeight - 1) + RENDER_HEIGHT / 2 + camera->pitch + camera->positionZ / raycast.wallDistance;
     if (raycast.drawStart < 0) raycast.drawStart = 0;
     raycast.drawEnd = raycast.lineHeight / 2 + RENDER_HEIGHT / 2  + camera->pitch + camera->positionZ / raycast.wallDistance;

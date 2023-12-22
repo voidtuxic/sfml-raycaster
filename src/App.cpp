@@ -168,7 +168,7 @@ void App::render() const {
 
     for (int x = 0; x < RENDER_WIDTH; x++) {
         RaycastData raycast;
-        calculateWall(x, raycast, worldMap, camera, renderData->wallHeight);
+        calculateWall(x, raycast, worldMap, camera);
         raycast.populateTextureParameters(camera->position, camera->positionZ / raycast.wallDistance, camera->pitch);
         drawColumn(x, raycast, renderData);
 
