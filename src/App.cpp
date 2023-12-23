@@ -3,6 +3,7 @@
 //
 
 #include <cmath>
+#include <format>
 #include "App.h"
 #include "Floor.h"
 #include "Math.h"
@@ -11,7 +12,7 @@
 
 App::App() {
     camera = new wolf::CameraData(
-        sf::Vector2<double>(22, 11.5),
+        sf::Vector2<double>(6.5, 4),
         sf::Vector2<double>(-1, 0),
         sf::Vector2<double>(0, 0.9));
 
@@ -38,6 +39,13 @@ App::App() {
     loadTexture("textures/wool_colored_red.png");
     loadTexture("textures/stone_andesite_smooth.png");
     loadTexture("textures/pumpkin_top.png");
+
+    debugFont.loadFromFile("fonts/VT323-Regular.ttf");
+    debugText = new sf::Text;
+    debugText->setFont(debugFont);
+    debugText->setCharacterSize(64);
+    debugText->setPosition(10,0);
+    debugText->setFillColor(sf::Color::Green);
 }
 
 App::~App() {
@@ -161,9 +169,14 @@ void App::handleInput() {
         if (event.type == sf::Event::Closed)
             window->close();
     }
+
+    int elapsedMS = dt.asMilliseconds();
+    debugText->setString(std::format("FPS: {}\nFrame time: {}ms\nRender time: {}ms", 1000 / elapsedMS, elapsedMS,
+                                     renderTimeMS));
 }
 
-void App::render() const {
+void App::render() {
+    renderDeltaClock.restart();
     renderData->clearBuffer();
 
     for (int x = 0; x < RENDER_WIDTH; x++) {
@@ -176,8 +189,13 @@ void App::render() const {
         drawFloorWall(x, raycast, camera, renderData);
     }
 
+    const sf::Time dt = renderDeltaClock.restart();
+    renderTimeMS = dt.asMilliseconds();
+
     texture->update(renderData->buffer);
     window->clear(sf::Color::Black);
     window->draw(*bufferRect);
+    window->draw(*debugText);
+
     window->display();
 }

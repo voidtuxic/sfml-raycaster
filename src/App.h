@@ -18,6 +18,7 @@ private:
     sf::RenderWindow *window;
     sf::Clock deltaClock;
     sf::Clock clock;
+    sf::Clock renderDeltaClock;
 
     sf::Texture *texture;
     sf::RectangleShape *bufferRect;
@@ -27,6 +28,9 @@ private:
 
     sf::Vector2i previousMousePosition;
 
+    sf::Font debugFont;
+    sf::Text *debugText;
+    int renderTimeMS;
 private:
     void loadTexture(const std::string & filename) const;
 
@@ -36,7 +40,7 @@ private:
 
     void handleInput();
 
-    void render() const;
+    void render();
 };
 
 

@@ -83,7 +83,8 @@ namespace wolf {
     }
 
     inline void drawColumn(const int x, RaycastData &raycast, const RenderData *renderData) {
-        if (raycast.wallDistance > FOG_DISTANCE) return;
+        if (raycast.wallDistance > FOG_DISTANCE
+            || raycast.textureId >= renderData->textures.size()) return;
         for (int y = raycast.drawStart; y <= raycast.drawEnd; ++y) {
             // Cast the texture coordinate to integer, and mask with (TEX_HEIGHT - 1) in case of overflow
             const int texY = static_cast<int>(raycast.texturePosition) & (TEX_HEIGHT - 1);
