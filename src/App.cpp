@@ -10,7 +10,7 @@
 
 
 App::App() {
-    camera = new CameraData(
+    camera = new wolf::CameraData(
         sf::Vector2<double>(22, 11.5),
         sf::Vector2<double>(-1, 0),
         sf::Vector2<double>(0, 0.9));
@@ -26,7 +26,7 @@ App::App() {
     bufferRect = new sf::RectangleShape(sf::Vector2f(WINDOW_WIDTH, WINDOW_HEIGHT));
     bufferRect->setTexture(texture, true);
 
-    renderData = new RenderData;
+    renderData = new wolf::RenderData;
     renderData->buffer = new sf::Uint8[RENDER_WIDTH * RENDER_HEIGHT * RENDER_COMPONENTS];
     loadTexture("textures/wool_colored_yellow.png");
     loadTexture("textures/wool_colored_silver.png");
@@ -167,7 +167,7 @@ void App::render() const {
     renderData->clearBuffer();
 
     for (int x = 0; x < RENDER_WIDTH; x++) {
-        RaycastData raycast;
+        wolf::RaycastData raycast;
         calculateWall(x, raycast, worldMap, camera);
         raycast.populateTextureParameters(camera->position, camera->positionZ / raycast.wallDistance, camera->pitch);
         drawColumn(x, raycast, renderData);

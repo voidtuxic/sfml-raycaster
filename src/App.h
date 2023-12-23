@@ -21,9 +21,9 @@ private:
 
     sf::Texture *texture;
     sf::RectangleShape *bufferRect;
-    RenderData *renderData;
+    wolf::RenderData *renderData;
 
-    CameraData* camera;
+    wolf::CameraData* camera;
 
     sf::Vector2i previousMousePosition;
 
