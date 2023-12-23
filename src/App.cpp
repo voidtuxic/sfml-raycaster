@@ -43,7 +43,7 @@ App::App() {
     debugFont.loadFromFile("fonts/VT323-Regular.ttf");
     debugText = new sf::Text;
     debugText->setFont(debugFont);
-    debugText->setCharacterSize(64);
+    debugText->setCharacterSize(32);
     debugText->setPosition(10,0);
     debugText->setFillColor(sf::Color::Green);
 }

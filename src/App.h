@@ -4,6 +4,9 @@
 
 #ifndef APP_H
 #define APP_H
+#define GLM_FORCE_MESSAGES
+#define GLM_FORCE_INLINE
+#define GLM_FORCE_INTRINSICS
 #include <SFML/Graphics.hpp>
 #include <glm/vec2.hpp>
 
