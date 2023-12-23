@@ -9,17 +9,17 @@
 
 namespace wolf {
     struct CameraData {
-        CameraData(const sf::Vector2<double> &position, const sf::Vector2<double> &direction,
-            const sf::Vector2<double> &plane)
+        CameraData(const glm::vec2 &position, const glm::vec2 &direction,
+            const glm::vec2 &plane)
             : position(position),
               direction(direction),
               plane(plane) {
         }
-        sf::Vector2<double> position;
-        sf::Vector2<double> direction;
-        sf::Vector2<double> plane;
-        double positionZ = 0;
-        double pitch = 0;
+        glm::vec2 position;
+        glm::vec2 direction;
+        glm::vec2 plane;
+        float positionZ = 0;
+        float pitch = 0;
     };
 
     struct RenderData {
@@ -43,30 +43,30 @@ namespace wolf {
     };
 
     struct RaycastData {
-        sf::Vector2<double> rayDirection;
-        sf::Vector2i mapPosition;
-        double wallDistance{};
-        double wallX{};
+        glm::vec2 rayDirection;
+        glm::ivec2 mapPosition;
+        float wallDistance{};
+        float wallX{};
         int side{};
         int lineHeight{};
         int drawStart{};
         int drawEnd{};
         int textureId{};
         int textureX{};
-        double step{};
-        double texturePosition{};
-        sf::Vector2<double> floorWall;
+        float step{};
+        float texturePosition{};
+        glm::vec2 floorWall;
         int wallHeight = 3;
 
-        void populateTextureParameters(const sf::Vector2<double> &position, const double &positionZ, const double &pitch) {
+        void populateTextureParameters(const glm::vec2 &position, const float &positionZ, const float &pitch) {
             textureId = worldMap[mapPosition.x][mapPosition.y] - 1;
 
             //calculate value of wallX
             if (side % 2 == 0) wallX = position.y + wallDistance * rayDirection.y;
             else wallX = position.x + wallDistance * rayDirection.x;
-            wallX -= floor((wallX));
+            wallX -= std::floor(wallX);
 
-            textureX = static_cast<int>(wallX * static_cast<double>(TEX_WIDTH));
+            textureX = static_cast<int>(wallX * static_cast<float>(TEX_WIDTH));
             if (side % 2 == 0 && rayDirection.x > 0) textureX = TEX_WIDTH - textureX - 1;
             if (side % 2 == 1 && rayDirection.y < 0) textureX = TEX_WIDTH - textureX - 1;
             step = 1.0 * TEX_HEIGHT / lineHeight;
@@ -74,12 +74,12 @@ namespace wolf {
         }
     };
 
-    inline void applyFog(const double distance, sf::Color &color) {
-        double delta = std::clamp(distance / FOG_DISTANCE, 0.0, 1.0);
+    inline void applyFog(const float distance, sf::Color &color) {
+        float delta = std::clamp(distance / FOG_DISTANCE, 0.0f, 1.0f);
         delta *= delta * delta;
-        color.r = std::lerp(color.r, CLEAR_COLOR.r, delta);
-        color.g = std::lerp(color.g, CLEAR_COLOR.g, delta);
-        color.b = std::lerp(color.b, CLEAR_COLOR.b, delta);
+        color.r = static_cast<sf::Uint8>(std::lerp(color.r, CLEAR_COLOR.r, static_cast<sf::Uint8>(delta)));
+        color.g = static_cast<sf::Uint8>(std::lerp(color.g, CLEAR_COLOR.g, delta));
+        color.b = static_cast<sf::Uint8>(std::lerp(color.b, CLEAR_COLOR.b, delta));
     }
 
     inline void drawColumn(const int x, RaycastData &raycast, const RenderData *renderData) {
@@ -101,16 +101,17 @@ namespace wolf {
 
         // ceiling
         for (int y = raycast.drawStart - 1; y >= 0; y--) {
-            constexpr double distPlayer = 0.0;
+            constexpr float distPlayer = 0.0;
 
-            const double ceilingHeight = 2.0 * (raycast.wallHeight - 1) * RENDER_HEIGHT;
-            const double currentDist = (RENDER_HEIGHT - 2.0 * camera->positionZ + ceilingHeight) / (RENDER_HEIGHT - 2.0 * (y - camera->pitch));
+            const float ceilingHeight = 2.0 * (raycast.wallHeight - 1) * RENDER_HEIGHT;
+            const float currentDist = (RENDER_HEIGHT - 2.0f * camera->positionZ + ceilingHeight)
+                / (RENDER_HEIGHT - 2.0f * (y - camera->pitch));
             //you could make a small lookup table for this instead
 
-            const double weight = (currentDist - distPlayer) / (raycast.wallDistance - distPlayer);
+            const float weight = (currentDist - distPlayer) / (raycast.wallDistance - distPlayer);
 
-            const double currentFloorX = weight * raycast.floorWall.x + (1.0 - weight) * camera->position.x;
-            const double currentFloorY = weight * raycast.floorWall.y + (1.0 - weight) * camera->position.y;
+            const float currentFloorX = weight * raycast.floorWall.x + (1.0f - weight) * camera->position.x;
+            const float currentFloorY = weight * raycast.floorWall.y + (1.0f - weight) * camera->position.y;
 
             const int floorTexX = std::clamp(static_cast<int>(currentFloorX * TEX_WIDTH) % TEX_WIDTH, 0, TEX_WIDTH);
             const int floorTexY = std::clamp(static_cast<int>(currentFloorY * TEX_HEIGHT) % TEX_HEIGHT, 0, TEX_HEIGHT);
@@ -122,14 +123,14 @@ namespace wolf {
 
         // floor
         for (int y = raycast.drawEnd + 1; y < RENDER_HEIGHT; y++) {
-            constexpr double distPlayer = 0.0;
-            const double currentDist = (RENDER_HEIGHT + 2.0 * camera->positionZ) / (2.0 * (y - camera->pitch) - RENDER_HEIGHT);
+            constexpr float distPlayer = 0.0;
+            const float currentDist = (RENDER_HEIGHT + 2.0f * camera->positionZ) / (2.0f * (y - camera->pitch) - RENDER_HEIGHT);
             //you could make a small lookup table for this instead
 
-            const double weight = (currentDist - distPlayer) / (raycast.wallDistance - distPlayer);
+            const float weight = (currentDist - distPlayer) / (raycast.wallDistance - distPlayer);
 
-            const double currentFloorX = weight * raycast.floorWall.x + (1.0 - weight) * camera->position.x;
-            const double currentFloorY = weight * raycast.floorWall.y + (1.0 - weight) * camera->position.y;
+            const float currentFloorX = weight * raycast.floorWall.x + (1.0f - weight) * camera->position.x;
+            const float currentFloorY = weight * raycast.floorWall.y + (1.0f - weight) * camera->position.y;
 
             const int floorTexX = std::clamp(static_cast<int>(currentFloorX * TEX_WIDTH) % TEX_WIDTH, 0, TEX_WIDTH);
             const int floorTexY = std::clamp(static_cast<int>(currentFloorY * TEX_HEIGHT) % TEX_HEIGHT, 0, TEX_HEIGHT);

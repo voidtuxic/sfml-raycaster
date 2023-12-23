@@ -4,7 +4,6 @@
 
 #ifndef FLOOR_H
 #define FLOOR_H
-#include <SFML/Graphics.hpp>
 
 namespace wolf {
     inline void calculateFloorWall(RaycastData &raycast) {

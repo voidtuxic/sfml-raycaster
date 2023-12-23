@@ -10,6 +10,7 @@ FetchContent_Declare(SFML
         GIT_REPOSITORY https://github.com/SFML/SFML.git
         GIT_TAG 2.6.x)
 FetchContent_MakeAvailable(SFML)
+add_subdirectory(glm)
 
 add_executable(raycaster src/main.cpp
         src/App.cpp
@@ -20,4 +21,5 @@ add_executable(raycaster src/main.cpp
         src/Floor.h
         src/Math.h)
 target_link_libraries(raycaster PRIVATE sfml-graphics)
+target_link_libraries(raycaster PRIVATE glm::glm)
 target_compile_features(raycaster PRIVATE cxx_std_20)

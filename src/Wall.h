@@ -8,28 +8,28 @@
 #include "Config.h"
 
 namespace wolf {
-    inline void calculateStep(const sf::Vector2<double> &position, const sf::Vector2<double> &rayDir,
-                              const sf::Vector2<double> &deltaDist, const sf::Vector2i &mapPosition, sf::Vector2<double> &sideDist,
-                              sf::Vector2i &step) {
+    inline void calculateStep(const glm::vec2 &position, const glm::vec2 &rayDir,
+                              const glm::vec2 &deltaDist, const glm::ivec2 &mapPosition, glm::vec2 &sideDist,
+                              glm::ivec2 &step) {
         //what direction to step in x or y-direction (either +1 or -1)
         if (rayDir.x < 0) {
             step.x = -1;
-            sideDist.x = (position.x - mapPosition.x) * deltaDist.x;
+            sideDist.x = (position.x - static_cast<float>(mapPosition.x)) * deltaDist.x;
         } else {
             step.x = 1;
-            sideDist.x = (mapPosition.x + 1.0 - position.x) * deltaDist.x;
+            sideDist.x = (static_cast<float>(mapPosition.x) + 1.0f - position.x) * deltaDist.x;
         }
         if (rayDir.y < 0) {
             step.y = -1;
-            sideDist.y = (position.y - mapPosition.y) * deltaDist.y;
+            sideDist.y = (position.y - static_cast<float>(mapPosition.y)) * deltaDist.y;
         } else {
             step.y = 1;
-            sideDist.y = (mapPosition.y + 1.0 - position.y) * deltaDist.y;
+            sideDist.y = (static_cast<float>(mapPosition.y) + 1.0f - position.y) * deltaDist.y;
         }
     }
 
-    inline void performDDA(const int map[MAP_WIDTH][MAP_HEIGHT], int &side, const sf::Vector2<double> &deltaDist,
-                           const sf::Vector2i &step, sf::Vector2i &mapPosition, sf::Vector2<double> &sideDist) {
+    inline void performDDA(const int map[MAP_WIDTH][MAP_HEIGHT], int &side, const glm::vec2 &deltaDist,
+                           const glm::ivec2 &step, glm::ivec2 &mapPosition, glm::vec2 &sideDist) {
         int hit = 0; //was there a wall hit?
         while (hit == 0) {
             //jump to next map square, either in x-direction, or in y-direction
@@ -50,15 +50,15 @@ namespace wolf {
     inline void calculateWall(const int x, RaycastData &raycast, const int map[MAP_WIDTH][MAP_HEIGHT], const CameraData* camera) {
         //calculate ray position and direction
         const double cameraX = 2 * x / static_cast<double>(RENDER_WIDTH) - 1; //x-coordinate in camera space
-        raycast.rayDirection = sf::Vector2(camera->direction.x + camera->plane.x * cameraX, camera->direction.y + camera->plane.y * cameraX);
-        raycast.mapPosition = sf::Vector2i(static_cast<int>(camera->position.x), static_cast<int>(camera->position.y));
+        raycast.rayDirection = glm::vec2(camera->direction.x + camera->plane.x * cameraX, camera->direction.y + camera->plane.y * cameraX);
+        raycast.mapPosition = glm::ivec2(static_cast<int>(camera->position.x), static_cast<int>(camera->position.y));
 
         //length of ray from current position to next x or y-side
-        sf::Vector2<double> sideDist;
-        sf::Vector2i step;
+        glm::vec2 sideDist;
+        glm::ivec2 step;
 
         //length of ray from one x or y-side to next x or y-side
-        const sf::Vector2<double> deltaDist = sf::Vector2<double>(
+        const glm::vec2 deltaDist = glm::vec2(
             (raycast.rayDirection.x == 0) ? 1e30 : std::abs(1 / raycast.rayDirection.x),
             (raycast.rayDirection.y == 0) ? 1e30 : std::abs(1 / raycast.rayDirection.y));
 
@@ -73,7 +73,7 @@ namespace wolf {
         else raycast.wallDistance = (sideDist.y - deltaDist.y);
         raycast.lineHeight = static_cast<int>(RENDER_HEIGHT / raycast.wallDistance);
 
-        auto wallHeight = raycast.wallHeight;
+        const auto wallHeight = raycast.wallHeight;
         raycast.drawStart = -raycast.lineHeight * (0.5 + wallHeight - 1) + RENDER_HEIGHT / 2 + camera->pitch + camera->positionZ / raycast.wallDistance;
         if (raycast.drawStart < 0) raycast.drawStart = 0;
         raycast.drawEnd = raycast.lineHeight / 2 + RENDER_HEIGHT / 2  + camera->pitch + camera->positionZ / raycast.wallDistance;

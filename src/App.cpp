@@ -12,9 +12,9 @@
 
 App::App() {
     camera = new wolf::CameraData(
-        sf::Vector2<double>(6.5, 4),
-        sf::Vector2<double>(-1, 0),
-        sf::Vector2<double>(0, 0.9));
+        glm::vec2(6.5, 4),
+        glm::vec2(-1, 0),
+        glm::vec2(0, 0.9));
 
     window = new sf::RenderWindow(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Raycaster");
     window->setVerticalSyncEnabled(true);
@@ -64,6 +64,8 @@ int App::run() {
         render();
     }
 
+    previousMousePosition = ToGLM(sf::Mouse::getPosition());
+
     return EXIT_SUCCESS;
 }
 
@@ -72,9 +74,9 @@ void App::loadTexture(const std::string &filename) const {
     renderData->textures[renderData->textures.size() - 1]->loadFromFile(filename);
 }
 
-void App::handleKeyboard(const double frameTime, const double totalTime) const {
-    const double moveSpeed = frameTime * 5.0; //the constant value is in squares/second
-    sf::Vector2<double> movement;
+void App::handleKeyboard(const float frameTime, const float totalTime) const {
+    const float moveSpeed = frameTime * 5.0f; //the constant value is in squares/second
+    glm::vec2 movement{};
 
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::W)) {
         movement.y += 1;
@@ -115,23 +117,23 @@ void App::handleKeyboard(const double frameTime, const double totalTime) const {
     }
 }
 
-void App::handleMouse(const double frameTime) {
-    auto mousePosition = sf::Mouse::getPosition(*window);
+void App::handleMouse(const float frameTime) {
+    auto mousePosition = ToGLM(sf::Mouse::getPosition(*window));
     const auto mouseDelta = mousePosition - previousMousePosition;
 
     if(abs(mouseDelta.x) > 0) {
         //both camera direction and camera plane must be rotated
-        const double oldDirX = camera->direction.x;
-        const double rotSpeed = frameTime * -mouseDelta.x * MOUSE_SENSITIVITY_HORIZONTAL; //the constant value is in radians/second
-        camera->direction.x = camera->direction.x * cos(rotSpeed) - camera->direction.y * sin(rotSpeed);
-        camera->direction.y = oldDirX * sin(rotSpeed) + camera->direction.y * cos(rotSpeed);
-        const double oldPlaneX = camera->plane.x;
-        camera->plane.x = camera->plane.x * cos(rotSpeed) - camera->plane.y * sin(rotSpeed);
-        camera->plane.y = oldPlaneX * sin(rotSpeed) + camera->plane.y * cos(rotSpeed);
+        const float oldDirX = camera->direction.x;
+        const float rotSpeed = static_cast<float>(-mouseDelta.x) * frameTime * MOUSE_SENSITIVITY_HORIZONTAL;
+        camera->direction.x = camera->direction.x * cosf(rotSpeed) - camera->direction.y * sinf(rotSpeed);
+        camera->direction.y = oldDirX * sinf(rotSpeed) + camera->direction.y * cosf(rotSpeed);
+        const float oldPlaneX = camera->plane.x;
+        camera->plane.x = camera->plane.x * cosf(rotSpeed) - camera->plane.y * sinf(rotSpeed);
+        camera->plane.y = oldPlaneX * sinf(rotSpeed) + camera->plane.y * cosf(rotSpeed);
     }
 
     if(abs(mouseDelta.y) > 0) {
-        const double rotSpeed = frameTime * -mouseDelta.y * MOUSE_SENSITIVITY_VERTICAL; //the constant value is in radians/second
+        const float rotSpeed = static_cast<float>(-mouseDelta.y) * frameTime * MOUSE_SENSITIVITY_VERTICAL; //the constant value is in radians/second
         camera->pitch = std::clamp(camera->pitch + rotSpeed, -MOUSE_VERTICAL_PITCH, MOUSE_VERTICAL_PITCH);
     }
 
@@ -152,7 +154,7 @@ void App::handleMouse(const double frameTime) {
         mousePosition.y -= WINDOW_HEIGHT;
         previousMousePosition.y -= WINDOW_HEIGHT;
     }
-    sf::Mouse::setPosition(mousePosition, *window);
+    sf::Mouse::setPosition(FromGLM(mousePosition), *window);
 }
 
 void App::handleInput() {

@@ -5,6 +5,7 @@
 #ifndef APP_H
 #define APP_H
 #include <SFML/Graphics.hpp>
+#include <glm/vec2.hpp>
 
 #include "Render.h"
 
@@ -26,17 +27,17 @@ private:
 
     wolf::CameraData* camera;
 
-    sf::Vector2i previousMousePosition;
+    glm::ivec2 previousMousePosition{};
 
     sf::Font debugFont;
     sf::Text *debugText;
-    int renderTimeMS;
+    int renderTimeMS = 0;
 private:
     void loadTexture(const std::string & filename) const;
 
-    void handleKeyboard(double frameTime, double totalTime) const;
+    void handleKeyboard(float frameTime, float totalTime) const;
 
-    void handleMouse(double frameTime);
+    void handleMouse(float frameTime);
 
     void handleInput();
 
